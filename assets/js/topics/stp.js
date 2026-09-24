@@ -88,7 +88,7 @@ show spanning_tree vlan 100
 
 <span class="c"># Enterprise SONiC（Management Framework）</span>
 sonic(config)# spanning-tree mode rapid-pvst
-sonic(config)# spanning-tree vlan 100 priority 4096
+<span class="c"># VLAN bridge priority（0–61440，以 4096 為單位）的指令格式見 UG460 §8.4.8.3</span>
 sonic(config)# spanning-tree vlan 100 hello-time 2
 sonic(config)# interface Eth1/2
 sonic(config-if-Eth1/2)# spanning-tree portfast

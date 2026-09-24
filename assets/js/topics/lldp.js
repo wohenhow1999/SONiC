@@ -55,13 +55,11 @@ docker exec lldp lldpcli show neighbors details
 docker exec lldp lldpcli show statistics
 
 <span class="c"># Enterprise SONiC</span>
-sonic(config)# lldp enable
-sonic(config)# lldp timer 30
-sonic(config)# lldp multiplier 4
-sonic(config)# lldp tlv-select management-address
 sonic(config)# interface Eth1/48
 sonic(config-if-Eth1/48)# lldp tlv-select port-vlan-id
-sonic(config-if-Eth1/48)# lldp mode receive       <span class="c"># 只收不送</span>
+sonic(config-if-Eth1/48)# lldp tlv-select max-frame-size
+sonic(config-if-Eth1/48)# lldp tlv-select link-aggregation
+sonic(config-if-Eth1/1)# lldp vlan-name-tlv allowed vlan 20,70-100
 sonic# show lldp table
 sonic# show lldp neighbor Eth1/48</pre>
 <div class="callout"><div class="ct">LLDP-MED</div><p>LLDP-MED（ANSI/TIA-1057）在 802.1AB 之上加入網路政策（語音 VLAN、優先權）、位置與 PoE 資訊，常用於 IP 電話與校園網路。Enterprise SONiC 預設在所有介面啟用。</p></div>
