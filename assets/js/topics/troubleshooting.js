@@ -60,6 +60,25 @@
         ['路由震盪', 'vtysh -c "show ip bgp summary"', 'Up/Down 時間很短、MsgRcvd 快速增加代表鄰居或路由不穩定。'],
       ],
     },
+    {
+      n: '封包丟棄',
+      steps: [
+        ['分類計數', 'show interfaces counters -a\nshow interfaces counters errors', '先區分 RX_ERR（CRC、symbol：實體層問題）、RX_DRP（入口丟棄）、TX_DRP（出口壅塞）。'],
+        ['佇列與緩衝', 'show queue counters Ethernet0\nshow priority-group drop counters\nshow queue watermark unicast', '出口佇列丟棄代表壅塞；watermark 接近上限表示緩衝不足或微突發。'],
+        ['丟棄原因', 'show dropcounters capabilities\nsudo config dropcounters install DEBUG_0 PORT_INGRESS_DROPS L3_EGRESS_LINK_DOWN,IP_HEADER_ERROR\nshow dropcounters counts', 'debug counter 依 SAI drop reason 分類入口 / 出口丟棄（ACL、TTL、路由不存在、SMAC=DMAC…）。'],
+        ['CPU 路徑', 'show copp configuration\nsonic-db-cli COUNTERS_DB keys "COUNTERS_TRAP*"', 'CoPP policer 丟棄的是送往 CPU 的控制封包，會影響協定與 ARP。'],
+        ['ACL', 'aclshow -a', '確認是否有 DROP 規則命中。'],
+      ],
+    },
+    {
+      n: '硬體表已滿',
+      steps: [
+        ['資源用量', 'crm show resources all\ncrm show summary', '檢查 ipv4 route、nexthop group、neighbor、fdb、acl entry 等的 used / available。'],
+        ['告警', 'sudo grep -i "crm\\|TABLE_FULL\\|SAI_STATUS_INSUFFICIENT" /var/log/syslog | tail', 'CRM 超過門檻會記錄 warning；SAI 建立失敗會出現 insufficient resources。'],
+        ['受影響的路由', 'sudo route_check.py', '列出在 APPL_DB 但未下到 ASIC 的路由。'],
+        ['調整', 'sudo config crm thresholds ipv4 route high 85\n# 或調整路由彙總、減少 ECMP 群組、選擇較大的 scale profile', '從設計面降低表項需求；Enterprise 可切換 L2 / L3 switch profile 重新分配硬體表。'],
+      ],
+    },
   ];
 
   S.register({
@@ -89,6 +108,70 @@
 
 <h2>常見症狀檢查順序</h2>
 <div id="cases"></div>
+
+<h2>封包丟棄分析</h2>
+<p>丟棄可能發生在實體層、入口管線、出口佇列或送往 CPU 的路徑。依計數器的位置判斷原因：</p>
+<table>
+<thead><tr><th>觀察位置</th><th>代表</th><th>進一步檢查</th></tr></thead>
+<tbody>
+<tr><td>RX_ERR（CRC / FCS）</td><td>實體層錯誤：光模組、線材、FEC 不一致</td><td><code>show interfaces transceiver eeprom --dom</code>、FEC 設定、對端錯誤計數</td></tr>
+<tr><td>RX_DRP</td><td>入口管線丟棄：ACL、路由查無、TTL 1、VLAN 不允許、STP discarding</td><td>debug drop counter（drop reason）</td></tr>
+<tr><td>PG / 入口緩衝丟棄</td><td>入口共享緩衝用盡（lossy PG）</td><td>priority-group watermark、buffer profile</td></tr>
+<tr><td>TX_DRP / queue drop</td><td>出口壅塞、WRED 丟棄</td><td>queue counters、queue watermark、微突發</td></tr>
+<tr><td>CoPP / trap 計數</td><td>送往 CPU 的封包超過 policer</td><td>CoPP 設定、是否有異常大量控制封包</td></tr>
+</tbody></table>
+<pre><span class="c"># 社群版 debug drop counter（CONFIG_DB DEBUG_COUNTER / DEBUG_COUNTER_DROP_REASON）</span>
+show dropcounters capabilities
+sudo config dropcounters install DEBUG_0 PORT_INGRESS_DROPS SMAC_EQUALS_DMAC,TTL,ACL_ANY -d "ingress drops"
+show dropcounters counts
+<span class="c"># Enterprise SONiC</span>
+sonic(config)# dropcounters DROP_L3
+sonic(config-dropcounters-DROP_L3)# type PORT_INGRESS_DROPS
+sonic(config-dropcounters-DROP_L3)# add-reason IP_HEADER_ERROR
+sonic(config-dropcounters-DROP_L3)# mirror ERSPAN1              <span class="c"># 把被丟棄的封包鏡像出去分析</span>
+sonic# show dropcounters capabilities</pre>
+
+<h2>硬體資源（CRM）</h2>
+<p>CrmOrch 定期向 SAI 查詢各硬體表的已用與可用數量，寫入 COUNTERS_DB 的 <code>CRM:STATS</code>，超過門檻時記錄告警。</p>
+<pre><span class="c"># 社群版</span>
+crm show resources all
+crm show thresholds all
+sudo config crm polling interval 60
+<span class="c"># Enterprise SONiC</span>
+sonic# show crm summary
+sonic# show crm resources all
+sonic(config)# crm threshold all type percentage</pre>
+<div class="callout"><div class="ct">路由下發失敗的處理</div><p>SAI 建立物件失敗（例如表滿）時，早期的 orchagent 會直接中止以避免狀態不一致；較新版本以 response channel 把結果回報給上游，並可設定重試。Enterprise SONiC 提供 <code>error-retry</code> 設定控制失敗路由的重試行為。</p></div>
+
+<h2>緩衝區水位與壅塞</h2>
+<p>微突發（microburst）持續時間通常以微秒計，平均速率計數器看不出來；watermark 記錄一段期間內緩衝使用的最高值，是判斷微突發的主要依據。</p>
+<pre>show priority-group watermark shared
+show priority-group watermark headroom
+show queue watermark unicast
+show buffer_pool watermark
+sonic-clear queue watermark unicast
+<span class="c"># Enterprise SONiC：超過門檻時產生事件</span>
+sonic(config-if-Eth1/2)# threshold queue 1 unicast 10
+sonic(config-if-Eth1/2)# threshold priority-group 3 shared 20</pre>
+
+<h2>光模組與鏈路診斷</h2>
+<pre><span class="c"># 社群版</span>
+show interfaces transceiver presence
+show interfaces transceiver eeprom --dom Ethernet0
+show interfaces transceiver error-status
+show interfaces counters errors
+<span class="c"># Enterprise SONiC</span>
+sonic# show interface transceiver dom
+sonic# show interface status err-disabled
+sonic# test cable-diagnostics Eth 1/1</pre>
+<table>
+<thead><tr><th>徵狀</th><th>常見原因</th></tr></thead>
+<tbody>
+<tr><td>link down，對端 up</td><td>FEC、速率、auto-negotiation 設定不一致；光模組不相容</td></tr>
+<tr><td>CRC 持續增加</td><td>光功率不足、髒污或彎折的光纖、DAC 過長</td></tr>
+<tr><td>鏈路頻繁翻動</td><td>光功率接近門檻、PCS 錯誤；可用 link-error-disable 隔離</td></tr>
+<tr><td>port err-disabled</td><td>BPDU guard、UDLD、link flap、port security 觸發；查看原因後以 errdisable recovery 或手動恢復</td></tr>
+</tbody></table>
 
 <h2>跨層比對工具</h2>
 <table class="wrap">

@@ -18,6 +18,8 @@ S.register({
     'VXLAN_TUNNEL 定義本地 VTEP 來源 IP，VXLAN_TUNNEL_MAP 定義 VLAN↔VNI 對應，VXLAN_EVPN_NVO 指定由 EVPN 控制的 VTEP。',
     'EVPN Type-3（IMET）建立遠端 VTEP 與 BUM 泛洪清單；Type-2 通告 MAC/IP；Type-5 通告 IP prefix（L3 VNI）。',
     'fdbsyncd 從 kernel 讀取 zebra 安裝的遠端 FDB 與 VTEP，寫入 APPL_DB 的 VXLAN_FDB_TABLE 與 VXLAN_REMOTE_VNI_TABLE。',
+    'Symmetric IRB 以每個 VRF 的 L3 VNI 在入口與出口各路由一次；asymmetric IRB 只在入口路由，需要每台 VTEP 都有所有子網。',
+    'EVPN multihoming 以 ESI 識別多台 VTEP 共用的 Ethernet Segment，以 Type-1 / Type-4 路由完成 aliasing、快速收斂與 DF 選舉。',
   ],
   html: `
 <h2>元件與資料流</h2>
@@ -53,6 +55,84 @@ router bgp 65100
 <h2>封裝格式與 MTU</h2>
 <p>選擇 underlay 類型並輸入 underlay MTU，計算可承載的最大 inner frame 與 inner IP MTU。</p>
 <div id="encap"></div>
+
+<h2>對稱與非對稱 IRB</h2>
+<p>IRB（Integrated Routing and Bridging）決定跨子網的流量在 overlay 中如何被路由。選擇模式查看兩種做法的差異。</p>
+<div id="irb"></div>
+<table>
+<thead><tr><th></th><th>Symmetric IRB</th><th>Asymmetric IRB</th></tr></thead>
+<tbody>
+<tr><td>路由位置</td><td>入口 VTEP 與出口 VTEP 各路由一次</td><td>只在入口 VTEP 路由，出口 VTEP 只做橋接</td></tr>
+<tr><td>封裝使用的 VNI</td><td>L3 VNI（每個 VRF 一個）</td><td>目的子網的 L2 VNI</td></tr>
+<tr><td>內層目的 MAC</td><td>出口 VTEP 的 router MAC（由 EVPN route 的 Router MAC extended community 取得）</td><td>目的主機的 MAC</td></tr>
+<tr><td>每台 VTEP 需要的 VLAN / VNI</td><td>只需本地有的子網，加上 L3 VNI</td><td>必須設定所有可能通訊的子網</td></tr>
+<tr><td>ARP / MAC 規模</td><td>只需本地主機，遠端以 /32 主機路由表示</td><td>需要所有遠端主機的 ARP 與 MAC</td></tr>
+<tr><td>SONiC 中的表示</td><td><code>VRF|Vrf1 vni</code>、<code>ROUTE_TABLE:Vrf1:… vni / router_mac</code></td><td>各 VLAN 的 VNI 對應與 anycast gateway</td></tr>
+</tbody></table>
+
+<h2>ARP / ND 抑制</h2>
+<p>EVPN Type-2 路由已經攜帶 MAC 與 IP 的對應。啟用 neighbor suppression 後，VTEP 收到主機的 ARP 請求時，若已從 EVPN 學到目標，就直接在本地代答，不把 ARP 廣播送進 overlay，大幅減少 BUM 流量。</p>
+<pre><span class="c"># Enterprise SONiC</span>
+sonic(config)# interface Vlan 100
+sonic(config-if-Vlan100)# neigh-suppress</pre>
+
+<h2>EVPN Multihoming</h2>
+<p>EVPN multihoming（ESI-LAG）讓一台主機以 LAG 同時連到多台 VTEP，不需要 MCLAG 的 peer link。同一個 Ethernet Segment（以 10 byte 的 ESI 識別）上的 VTEP 透過 BGP 交換資訊：</p>
+<table>
+<thead><tr><th>EVPN route</th><th>用途</th></tr></thead>
+<tbody>
+<tr><td>Type-1 Ethernet Auto-Discovery</td><td>per-ES：宣告與此 ES 相連，用於快速收斂（mass withdraw）與 split-horizon 標籤；per-EVI：aliasing，讓遠端 VTEP 把流量分散到所有連到該 ES 的 VTEP</td></tr>
+<tr><td>Type-4 Ethernet Segment</td><td>發現同一 ES 的其他 VTEP，作為 DF 選舉的輸入</td></tr>
+<tr><td>Designated Forwarder</td><td>每個 VLAN 在每個 ES 上只有 DF 會把 BUM 流量送給主機，避免主機收到重複封包</td></tr>
+<tr><td>Split horizon</td><td>從同一個 ES 上的其他 VTEP 來的 BUM 流量不會再送回該 ES（local bias）</td></tr>
+</tbody></table>
+<h3>DF 選舉（service carving）</h3>
+<p>RFC 7432 的預設演算法：把連到同一 ES 的 VTEP 依 IP 位址由小到大排序（序號 0 到 N−1），VLAN V 的 DF 為序號 <code>V mod N</code> 的 VTEP。</p>
+<div id="df"></div>
+<pre><span class="c"># Enterprise SONiC</span>
+sonic(config)# evpn esi-multihoming
+sonic(config-evpn-esi-mh)# startup-delay 300
+sonic(config-evpn-esi-mh)# mac-holdtime 1080
+sonic(config)# interface PortChannel1
+sonic(config-if-po1)# system-mac 00:00:00:0a:00:01
+sonic(config-if-po1)# evpn ethernet-segment 00:00:00:00:00:00:00:0a:00:01</pre>
+
+<h2>Multi-site DCI</h2>
+<p>多個資料中心各自是獨立的 EVPN fabric，由 border gateway（BGW）相連。BGW 以 <code>fabric-external</code> 鄰居交換 EVPN 路由，並以自己的 external IP 重新作為 next hop（re-origination），使兩個 fabric 的內部 VTEP 不需要互相建立隧道，BUM 與路由規模都被限制在各自 site 內。</p>
+<pre><span class="c"># Enterprise SONiC：border gateway</span>
+sonic(config)# interface vxlan vtep-1
+sonic(config-if-vxlan-vtep-1)# source-ip 192.168.10.1
+sonic(config-if-vxlan-vtep-1)# external-ip 10.1.1.1
+sonic(config)# router bgp 65001
+sonic(config-router-bgp)# neighbor 10.2.2.2
+sonic(config-router-bgp-neighbor)# address-family l2vpn evpn
+sonic(config-router-bgp-neighbor-af)# fabric-external</pre>
+
+<h2>Enterprise SONiC 設定</h2>
+<pre>sonic(config)# interface Loopback 1
+sonic(config-if-lo1)# ip address 10.1.0.1/32
+sonic(config)# interface vxlan vtep1
+sonic(config-if-vtep1)# source-ip Loopback 1
+sonic(config-if-vtep1)# map vni 10100 vlan 100
+sonic(config-if-vtep1)# map vni 50001 vrf Vrf1                  <span class="c"># L3 VNI（symmetric IRB）</span>
+sonic(config)# ip anycast-mac-address 00:00:5e:00:01:01
+sonic(config)# ip vrf Vrf1
+sonic(config)# interface Vlan 100
+sonic(config-if-Vlan100)# ip vrf forwarding Vrf1
+sonic(config-if-Vlan100)# ip anycast-address 192.168.100.254/24  <span class="c"># 每台 leaf 相同的閘道</span>
+sonic(config-if-Vlan100)# neigh-suppress
+sonic(config)# router bgp 65101
+sonic(config-router-bgp)# peer-group SPINE
+sonic(config-router-bgp-pg)# address-family l2vpn evpn
+sonic(config-router-bgp-pg-af)# activate
+sonic(config-router-bgp)# address-family l2vpn evpn
+sonic(config-router-bgp-af)# advertise-all-vni
+sonic(config)# router bgp 65101 vrf Vrf1
+sonic(config-router-bgp)# address-family l2vpn evpn
+sonic(config-router-bgp-af)# advertise ipv4 unicast                <span class="c"># 以 Type-5 通告 VRF 路由</span>
+sonic# show evpn vni detail
+sonic# show bgp l2vpn evpn summary
+sonic# show vxlan tunnel</pre>
 
 <h2>除錯</h2>
 <pre>show vxlan tunnel
@@ -134,6 +214,49 @@ sonic-db-cli ASIC_DB keys "*TUNNEL*"</pre>
     }
     mtu.addEventListener('input', draw);
     draw();
+
+    // ---------- IRB ----------
+    const irbHost = root.querySelector('#irb');
+    const ib = S.el('div', { class: 'w-box' });
+    irbHost.appendChild(ib);
+    const ibody = S.el('div', { style: 'margin-top:12px' });
+    const MODES = [
+      { n: 'Symmetric IRB', steps: [
+        ['Host A → Leaf1', 'Host A（192.168.100.10，Vlan100）送往 Host B（192.168.200.20，Vlan200），目的 MAC 為 anycast gateway MAC。'],
+        ['Leaf1 路由', 'Leaf1 在 Vrf1 中查到 192.168.200.20/32（由 Type-2 或 Type-5 學到），next hop 為 Leaf2 的 VTEP 10.1.0.2。'],
+        ['封裝', 'outer IP 10.1.0.1 → 10.1.0.2，VXLAN VNI = <b>50001（L3 VNI）</b>，inner 目的 MAC 改為 <b>Leaf2 的 router MAC</b>。'],
+        ['Leaf2 路由', 'Leaf2 解封裝後依 L3 VNI 找到 Vrf1，再路由一次到 Vlan200，inner 目的 MAC 改為 Host B 的 MAC。'],
+        ['送達', 'Host B 收到封包。每台 leaf 只需要本地子網與 L3 VNI。'],
+      ] },
+      { n: 'Asymmetric IRB', steps: [
+        ['Host A → Leaf1', 'Host A 送往閘道（anycast gateway MAC）。'],
+        ['Leaf1 路由', 'Leaf1 本地也有 Vlan200 的 SVI，直接路由到 Vlan200，並查詢 Host B 的 ARP（由 EVPN Type-2 同步）。'],
+        ['封裝', 'outer IP 10.1.0.1 → 10.1.0.2，VXLAN VNI = <b>10200（Vlan200 的 L2 VNI）</b>，inner 目的 MAC 為 <b>Host B 的 MAC</b>。'],
+        ['Leaf2 橋接', 'Leaf2 解封裝後只在 Vlan200 中橋接到 Host B，不再路由。'],
+        ['送達', 'Host B 收到封包。代價是每台 leaf 都要設定所有子網並保存所有主機的 ARP。'],
+      ] },
+    ];
+    S.seg(ib, MODES.map(m => m.n), i => {
+      ibody.innerHTML = `<div class="tbl"><table><thead><tr><th style="width:40px">#</th><th style="width:130px">階段</th><th>處理</th></tr></thead><tbody>${MODES[i].steps.map((st, k) => `<tr><td class="mono">${k + 1}</td><td>${st[0]}</td><td>${st[1]}</td></tr>`).join('')}</tbody></table></div>`;
+    });
+    ib.appendChild(ibody);
+
+    // ---------- DF 選舉 ----------
+    const dfHost = root.querySelector('#df');
+    const db = S.el('div', { class: 'w-box' });
+    dfHost.appendChild(db);
+    const PES = [{ ip: '10.1.0.3', on: true }, { ip: '10.1.0.1', on: true }, { ip: '10.1.0.2', on: false }];
+    const vl = S.el('input', { id: 'df-vlans', value: '100,101,102,103,200', size: 22 });
+    const dout = S.el('div');
+    function dfDraw() {
+      const act = PES.filter(p => p.on).map(p => p.ip).sort((a, b) => a.split('.').reduce((x, y) => x * 256 + +y, 0) - b.split('.').reduce((x, y) => x * 256 + +y, 0));
+      const vlans = vl.value.split(',').map(x => parseInt(x.trim(), 10)).filter(x => x >= 1 && x <= 4094);
+      const row = S.el('div', { class: 'row' }, S.el('label', { class: 'field', for: 'df-vlans' }, 'VLAN 清單', vl), ...PES.map(p => S.el('button', { class: 'btn sm' + (p.on ? ' on' : ''), style: 'align-self:flex-end', onclick: () => { p.on = !p.on; dfDraw(); } }, S.el('span', { class: 'dot ' + (p.on ? 'up' : 'down') }), `VTEP ${p.ip}`)));
+      dout.innerHTML = act.length ? `<div class="log" style="margin-top:10px">排序後：${act.map((ip, i) => `<code>${i}: ${ip}</code>`).join(' ')}（N = ${act.length}）</div><div class="tbl" style="margin-top:8px"><table><thead><tr><th>VLAN</th><th>V mod N</th><th>DF</th></tr></thead><tbody>${vlans.map(v => `<tr><td class="mono">${v}</td><td class="mono">${v % act.length}</td><td class="mono">${act[v % act.length]}</td></tr>`).join('')}</tbody></table></div>` : '<div class="log" style="margin-top:10px">沒有可用的 VTEP。</div>';
+      db.innerHTML = ''; db.appendChild(row); db.appendChild(dout);
+    }
+    vl.addEventListener('change', dfDraw);
+    dfDraw();
   },
   related: ['vlan', 'routing', 'neighbor', 'ref-configdb'],
   refs: [
