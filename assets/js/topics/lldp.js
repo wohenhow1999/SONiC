@@ -105,6 +105,6 @@ sonic# show lldp neighbor Eth1/48</pre>
       ],
     });
   },
-  related: ['containers', 'copp', 'lag', 'port'],
+  related: ['containers', 'copp', 'lag', 'port', 'pac'],
   refs: [['IEEE 802.1AB', 'https://standards.ieee.org/ieee/802.1AB/6047/'], ['lldpd', 'https://lldpd.github.io/'], ['Enterprise SONiC User Guide UG460：§8.2、§9.3', 'https://www.broadcom.com/products/ethernet-connectivity/software/enterprise-sonic']],
 });

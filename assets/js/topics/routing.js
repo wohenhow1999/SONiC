@@ -156,6 +156,6 @@ sudo route_check.py</pre>
     '路由的 next hop 必須先被 NeighOrch 解析（有 MAC）才能下到 ASIC。',
     'route_check.py 可以比對 APPL_DB 與 ASIC_DB 路由是否一致。',
   ],
-  related: ['neighbor', 'swss', 'syncd-sai', 'cli-lab'],
+  related: ['neighbor', 'swss', 'syncd-sai', 'cli-lab', 'ecmp'],
   refs: [['FRRouting 文件', 'https://docs.frrouting.org/'], ['SONiC Routing / BGP 設計文件', 'https://github.com/sonic-net/SONiC/tree/master/doc']],
 });

@@ -174,6 +174,6 @@ S.register({
     '多條規則同時符合時，PRIORITY 數字大的優先。',
     'acl-loader 用 OpenConfig 格式載入 ACL；aclshow 查看每條規則的命中計數。',
   ],
-  related: ['copp', 'swss', 'config'],
+  related: ['copp', 'swss', 'config', 'pac'],
   refs: [['ACL 設計文件（SONiC）', 'https://github.com/sonic-net/SONiC/wiki/ACL-High-Level-Design']],
 });

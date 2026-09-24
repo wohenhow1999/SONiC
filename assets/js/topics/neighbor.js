@@ -137,5 +137,5 @@ sudo sonic-clear fdb all
     'MAC 位址由 ASIC 硬體學習，透過 SAI fdb_event 通知 FdbOrch，寫入 STATE_DB FDB_TABLE。',
     '未知單播與廣播會在 VLAN 內泛洪；已知單播只從學到的 port 送出。',
   ],
-  related: ['vlan', 'routing', 'copp'],
+  related: ['vlan', 'routing', 'copp', 'ipv6'],
 });

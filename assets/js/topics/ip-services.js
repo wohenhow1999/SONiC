@@ -134,6 +134,6 @@ sonic(config-if-Vlan100)# ipv6 nd-proxy enable remote-only</pre>
       ],
     });
   },
-  related: ['vlan', 'copp', 'mclag', 'neighbor', 'vrf'],
+  related: ['vlan', 'copp', 'mclag', 'neighbor', 'vrf', 'ipv6', 'pac'],
   refs: [['RFC 2131 DHCP', 'https://www.rfc-editor.org/rfc/rfc2131'], ['RFC 3046 Relay Agent Information Option', 'https://www.rfc-editor.org/rfc/rfc3046'], ['SONiC DHCPv6 relay HLD', 'https://github.com/sonic-net/SONiC/blob/master/doc/DHCPv6_relay/DHCPv6-relay-agent-High-Level-Design.md'], ['Enterprise SONiC User Guide UG460：§5.25、§10.17、§10.18', 'https://www.broadcom.com/products/ethernet-connectivity/software/enterprise-sonic']],
 });

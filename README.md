@@ -7,11 +7,14 @@ SONiC（Software for Open Networking in the Cloud）系統架構、資料流與�
 | 部分 | 章節 |
 |---|---|
 | 1 基礎概念 | SONiC 概述、系統架構總覽、Docker 容器一覽 |
-| 2 核心架構 | Redis 資料庫、SWSS 與 orchagent、syncd 與 SAI |
-| 3 L2 / L3 功能 | Port 與介面初始化、路由與 BGP（FRR）、VLAN 與 L2 橋接、PortChannel / LAG、鄰居解析與 MAC 學習、ACL、CoPP 與 CPU 封包路徑 |
-| 4 進階功能 | QoS 與 Buffer 管理、VXLAN 與 BGP EVPN |
-| 5 平台與維運 | 設定管理、平台監控、計數器與遙測、Warm / Fast / Cold Reboot、建置與安裝映像、故障排除方法 |
-| 6 實作 | 模擬操作環境 |
+| 2 核心架構 | Redis 資料庫、SWSS 與 orchagent、syncd 與 SAI、Management Framework |
+| 3 介面與 L2 | Port、VLAN、LAG、鄰居與 MAC、STP / PVST / MSTP、LLDP、Port Mirroring、QinQ 與 L2 擴充 |
+| 4 L3 與路由 | 路由架構與 FRR、VRF、IPv6 與 ND、BGP、OSPF、Route-map 與 PBR、ECMP / UCMP / ARS、VRRP、DHCP Relay 與 IP 服務、NAT |
+| 5 Overlay 與資料中心 | VXLAN 與 BGP EVPN、MCLAG、Multicast、RoCE、資料中心網路設計 |
+| 6 ACL、QoS 與保護 | ACL、CoPP、QoS 與 Buffer、BFD 與 Link State Tracking |
+| 7 安全與身分驗證 | AAA / TACACS+ / RADIUS / LDAP 與 RBAC、憑證與 PKI、802.1X / MAB / PoE |
+| 8 維運與管理 | 設定管理、ZTP、平台監控、計數器、sFlow、Reboot、建置映像、REST / gNMI、SNMP / Syslog / NTP、PTP / SyncE、系統管理、故障排除 |
+| 9 實作 | 模擬操作環境 |
 | 附錄 | CONFIG_DB 表格參考、CLI 指令參考、檔案與日誌路徑、原始碼倉庫地圖、名詞表 |
 
 ## 功能

@@ -141,7 +141,7 @@
   function currentId() { return decodeURIComponent(location.hash.replace(/^#\/?/, '').split('?')[0]); }
 
   const STACK = [
-    ['管理介面', 'CLI (click) · gNMI · SNMP · REST', 'cli', 'config'],
+    ['管理介面', 'CLI (click) · KLISH · REST · gNMI · SNMP', 'cli', 'mgmt-api'],
     ['控制平面容器', 'bgp (FRR) · teamd · lldp · dhcp_relay · radv', 'container', 'containers'],
     ['狀態資料庫', 'Redis：CONFIG_DB · APPL_DB · STATE_DB · ASIC_DB · COUNTERS_DB', 'db', 'redis-db'],
     ['SWSS', 'orchagent · *mgrd · *syncd', 'proc', 'swss'],

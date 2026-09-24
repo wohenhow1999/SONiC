@@ -169,6 +169,6 @@ sonic# show ip route vrf Vrf_red</pre>
     }
     draw();
   },
-  related: ['routing', 'bgp', 'vxlan', 'ip-services'],
+  related: ['routing', 'bgp', 'vxlan', 'ip-services', 'sys-services', 'aaa'],
   refs: [['SONiC VRF HLD', 'https://github.com/sonic-net/SONiC/blob/master/doc/vrf/sonic-vrf-hld.md'], ['Sub-port interface HLD', 'https://github.com/sonic-net/SONiC/blob/master/doc/subport/sonic-sub-port-intf-hld.md'], ['Linux VRF 文件', 'https://docs.kernel.org/networking/vrf.html'], ['Enterprise SONiC User Guide UG460：§7.15、§10.1、§10.4', 'https://www.broadcom.com/products/ethernet-connectivity/software/enterprise-sonic']],
 });

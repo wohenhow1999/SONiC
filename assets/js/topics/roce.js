@@ -119,6 +119,6 @@ show queue counters Ethernet0</pre>
       ],
     });
   },
-  related: ['qos', 'counters', 'design', 'troubleshooting'],
+  related: ['qos', 'counters', 'design', 'troubleshooting', 'ecmp'],
   refs: [['Congestion Control for Large-Scale RDMA Deployments（DCQCN, SIGCOMM 2015）', 'https://conferences.sigcomm.org/sigcomm/2015/pdf/papers/p523.pdf'], ['IEEE 802.1Qbb PFC', 'https://standards.ieee.org/ieee/802.1Qbb/4361/'], ['Enterprise SONiC User Guide UG460：Ch.17、§16.2、§16.8–16.10、§27.5', 'https://www.broadcom.com/products/ethernet-connectivity/software/enterprise-sonic']],
 });

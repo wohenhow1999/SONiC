@@ -127,6 +127,6 @@ S.register({
     'COUNTERS_PORT_NAME_MAP 把 port 名稱對應到 OID，查 COUNTERS_DB 時先查它。',
     'sonic-clear counters 只存本機快照，不會歸零 COUNTERS_DB 或硬體計數器。',
   ],
-  related: ['redis-db', 'syncd-sai', 'pmon'],
+  related: ['redis-db', 'syncd-sai', 'pmon', 'mgmt-api', 'sys-services'],
   refs: [['SONiC gNMI / Telemetry', 'https://github.com/sonic-net/sonic-gnmi']],
 });

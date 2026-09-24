@@ -114,6 +114,6 @@ make SONIC_BUILD_JOBS=4 target/sonic-vs.img.gz
     '每個版本安裝在 /host/image-<version>/，以唯讀 squashfs + overlayfs 可寫層組成。',
     'sonic-installer install / set-default / set-next-boot / remove 管理多版本，方便升級與回滾。',
   ],
-  related: ['reboot', 'containers', 'overview'],
+  related: ['reboot', 'containers', 'overview', 'sys-admin'],
   refs: [['sonic-buildimage', 'https://github.com/sonic-net/sonic-buildimage'], ['ONIE', 'https://opencomputeproject.github.io/onie/']],
 });

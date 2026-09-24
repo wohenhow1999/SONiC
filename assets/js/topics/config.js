@@ -136,6 +136,6 @@ sonic-cfggen -m /etc/sonic/minigraph.xml --print-data</pre>` },
     'sonic-cfggen 負責載入 JSON / minigraph、印出設定，並用 CONFIG_DB 渲染 Jinja2 範本。',
     'GCU（config apply-patch）以 YANG 驗證並排序步驟，適合自動化的增量變更。',
   ],
-  related: ['redis-db', 'cli-lab', 'reboot'],
+  related: ['redis-db', 'cli-lab', 'reboot', 'sys-admin'],
   refs: [['SONiC Configuration（官方 Wiki）', 'https://github.com/sonic-net/SONiC/wiki/Configuration'], ['Generic Config Updater 設計', 'https://github.com/sonic-net/SONiC/blob/master/doc/config-generic-update-rollback/Json_Change_Application_Design.md']],
 });

@@ -107,6 +107,6 @@ S.register({
     }
     draw();
   },
-  related: ['bgp', 'vxlan', 'mclag', 'roce', 'protection', 'routing'],
+  related: ['bgp', 'vxlan', 'mclag', 'roce', 'protection', 'routing', 'ecmp'],
   refs: [['RFC 7938 Use of BGP for Routing in Large-Scale Data Centers', 'https://www.rfc-editor.org/rfc/rfc7938'], ['Enterprise SONiC User Guide UG460：Ch.27', 'https://www.broadcom.com/products/ethernet-connectivity/software/enterprise-sonic']],
 });

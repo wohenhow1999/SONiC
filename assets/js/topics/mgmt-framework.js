@@ -202,7 +202,7 @@ gnmic -a &lt;ip&gt;:8080 -u admin -p … --skip-verify subscribe \\
       box.appendChild(body);
     },
     searchText: PATHS.map(p => [p.n, p.cli, p.rest, p.yang, p.db, p.note].join(' ')).join(' '),
-    related: ['config', 'redis-db', 'routing', 'ztp', 'counters'],
+    related: ['config', 'redis-db', 'routing', 'ztp', 'counters', 'mgmt-api', 'aaa'],
     refs: [
       ['Management Framework HLD', 'https://github.com/sonic-net/SONiC/blob/master/doc/mgmt/Management%20Framework.md'],
       ['sonic-mgmt-common（translib / CVL）', 'https://github.com/sonic-net/sonic-mgmt-common'],
