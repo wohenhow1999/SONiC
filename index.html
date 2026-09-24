@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SONiC 百科 — 互動式 SONiC 架構學習網站</title>
+  <meta name="description" content="用互動架構圖、逐步動畫與虛擬交換機終端機學習 SONiC 網路作業系統的系統架構。">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='14' fill='%232f6fed'/><text x='32' y='42' font-size='26' font-family='Arial' font-weight='bold' fill='white' text-anchor='middle'>SN</text></svg>">
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <button class="icon-btn menu-btn" id="menuBtn" aria-label="開啟選單">☰</button>
+    <a class="brand" href="#/">
+      <span class="brand-logo">SN</span>
+      <span class="brand-name">SONiC 百科</span>
+      <small>互動式架構學習</small>
+    </a>
+    <div class="spacer"></div>
+    <div class="search-wrap">
+      <span class="s-ico">🔍</span>
+      <input id="search" type="search" placeholder="搜尋主題（按 / 快速搜尋）" autocomplete="off" aria-label="搜尋">
+      <div class="search-results" id="searchResults"></div>
+    </div>
+    <button class="icon-btn" id="themeBtn" aria-label="切換主題">🌓</button>
+  </header>
+  <div class="layout">
+    <nav class="sidebar" id="nav" aria-label="主題導覽"></nav>
+    <div class="backdrop" id="backdrop"></div>
+    <main class="main"><div class="content" id="content"></div></main>
+  </div>
+
+  <script src="assets/js/core.js"></script>
+  <script src="assets/js/components/diagram.js"></script>
+  <script src="assets/js/components/widgets.js"></script>
+  <script src="assets/js/components/sim.js"></script>
+
+  <!-- 主題（新增主題：建立檔案後在這裡加一行） -->
+  <script src="assets/js/topics/overview.js"></script>
+  <script src="assets/js/topics/architecture.js"></script>
+  <script src="assets/js/topics/containers.js"></script>
+  <script src="assets/js/topics/redis-db.js"></script>
+  <script src="assets/js/topics/swss.js"></script>
+  <script src="assets/js/topics/syncd-sai.js"></script>
+  <script src="assets/js/topics/port.js"></script>
+  <script src="assets/js/topics/routing.js"></script>
+  <script src="assets/js/topics/vlan.js"></script>
+  <script src="assets/js/topics/lag.js"></script>
+  <script src="assets/js/topics/neighbor.js"></script>
+  <script src="assets/js/topics/acl.js"></script>
+  <script src="assets/js/topics/copp.js"></script>
+  <script src="assets/js/topics/config.js"></script>
+  <script src="assets/js/topics/pmon.js"></script>
+  <script src="assets/js/topics/counters.js"></script>
+  <script src="assets/js/topics/reboot.js"></script>
+  <script src="assets/js/topics/build.js"></script>
+  <script src="assets/js/topics/cli-lab.js"></script>
+  <script src="assets/js/topics/glossary.js"></script>
+
+  <script src="assets/js/app.js"></script>
+</body>
+</html>
