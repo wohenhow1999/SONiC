@@ -65,7 +65,7 @@
   S.register({
     id: 'troubleshooting',
     category: 'ops',
-    order: 6,
+    order: 8,
     title: '故障排除方法',
     en: 'Troubleshooting Methodology',
     summary: 'SONiC 的問題多半可以用「沿著資料流逐層比對」定位：CONFIG_DB → kernel → APPL_DB → ASIC_DB → SAI/SDK。本章整理分層檢查方法、各層對應工具，以及常見症狀的檢查順序。',

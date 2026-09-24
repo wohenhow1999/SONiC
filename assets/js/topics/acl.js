@@ -1,7 +1,7 @@
 S.register({
   id: 'acl',
-  category: 'net',
-  order: 6,
+  category: 'svc',
+  order: 1,
   title: 'ACL 存取控制',
   en: 'Access Control Lists',
   summary: "資料平面 ACL 由 AclOrch 直接訂閱 CONFIG_DB，以 SAI ACL 物件寫入 ASIC TCAM；控制平面 ACL 由 host 上的 caclmgrd 轉換為 iptables 規則。",

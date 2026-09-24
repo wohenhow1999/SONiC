@@ -1,7 +1,7 @@
 S.register({
   id: 'build',
   category: 'ops',
-  order: 5,
+  order: 7,
   title: '建置與安裝映像',
   en: 'Build & Install',
   summary: "從 sonic-buildimage 編譯 SONiC 安裝映像、以 ONIE 首次安裝，以及使用 sonic-installer 管理多版本映像與升級。",

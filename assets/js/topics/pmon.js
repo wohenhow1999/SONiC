@@ -1,7 +1,7 @@
 S.register({
   id: 'pmon',
   category: 'ops',
-  order: 2,
+  order: 3,
   title: '平台監控（pmon）',
   en: 'Platform Monitor',
   summary: "pmon 容器中的 daemon 透過各廠商實作的 Platform API 監控光模組、電源、風扇、溫度、LED 與 EEPROM，並將結果寫入 STATE_DB。",

@@ -1,7 +1,7 @@
 S.register({
   id: 'vlan',
-  category: 'net',
-  order: 3,
+  category: 'l2',
+  order: 2,
   title: 'VLAN 與 L2 橋接',
   en: 'VLAN & Bridging',
   summary: "SONiC 在 Linux 以單一 vlan-aware bridge 表示 L2，在 ASIC 以 VLAN、BRIDGE_PORT、VLAN_MEMBER 物件建立轉發；VLAN 介面加上 IP 後以 ROUTER_INTERFACE 提供 L3 閘道。",

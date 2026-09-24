@@ -1,7 +1,7 @@
 S.register({
   id: 'neighbor',
-  category: 'net',
-  order: 5,
+  category: 'l2',
+  order: 4,
   title: '鄰居解析與 MAC 學習',
   en: 'Neighbors (ARP/NDP) & FDB',
   summary: "L3 鄰居（ARP/NDP）由 Linux kernel 解析，neighsyncd 同步至 APPL_DB，NeighOrch 建立 NEIGHBOR_ENTRY 與 NEXT_HOP；L2 MAC 由 ASIC 硬體學習，經 fdb_event 回報 FdbOrch。",

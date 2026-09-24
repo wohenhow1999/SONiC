@@ -5,9 +5,11 @@ window.S = (function () {
   const categories = [
     { id: 'intro', name: '基礎概念', en: 'Foundations' },
     { id: 'core', name: '核心架構', en: 'Core Architecture' },
-    { id: 'net', name: 'L2 / L3 功能', en: 'Switching & Routing' },
-    { id: 'adv', name: '進階功能', en: 'Advanced Features' },
-    { id: 'ops', name: '平台與維運', en: 'Platform & Operations' },
+    { id: 'l2', name: '介面與 L2', en: 'Interfaces & Layer 2' },
+    { id: 'l3', name: 'L3 與路由', en: 'Layer 3 & Routing' },
+    { id: 'dc', name: 'Overlay 與資料中心', en: 'Overlay & Data Center' },
+    { id: 'svc', name: 'QoS 與安全', en: 'QoS & Security' },
+    { id: 'ops', name: '維運與管理', en: 'Operations & Management' },
     { id: 'lab', name: '實作', en: 'Hands-on' },
     { id: 'ref', name: '附錄', en: 'Reference', appendix: true },
   ];

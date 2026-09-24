@@ -1,7 +1,7 @@
 S.register({
   id: 'lag',
-  category: 'net',
-  order: 4,
+  category: 'l2',
+  order: 3,
   title: 'PortChannel / LAG',
   en: 'Link Aggregation (teamd)',
   summary: "PortChannel 以 libteam 的 teamd 執行 LACP。teammgrd 負責建立 team 與成員，teamsyncd 回報成員狀態，PortsOrch 依狀態建立或移除 SAI LAG_MEMBER。",

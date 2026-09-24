@@ -1,8 +1,8 @@
 S.register({
   id: 'routing',
-  category: 'net',
-  order: 2,
-  title: '路由與 BGP（FRR）',
+  category: 'l3',
+  order: 1,
+  title: '路由架構與 FRR',
   en: 'Routing, BGP & FRR',
   summary: "SONiC 以 FRRouting 執行 BGP 等路由協定。路由經 bgpd → zebra → fpmsyncd 進入 APPL_DB，再由 RouteOrch 下發為 SAI ROUTE_ENTRY；多路徑以 NEXT_HOP_GROUP 實作 ECMP。",
   meta: [["容器", ["bgp"]], ["程序", ["bgpd", "zebra", "staticd", "bfdd", "bgpcfgd", "fpmsyncd", "orchagent (RouteOrch)"]], ["資料表", ["CONFIG_DB BGP_NEIGHBOR / STATIC_ROUTE", "APPL_DB ROUTE_TABLE", "ASIC_DB ROUTE_ENTRY / NEXT_HOP_GROUP"]], ["工具", ["vtysh", "route_check.py", "show ip bgp summary"]], ["原始碼", "<code>sonic-swss/fpmsyncd/</code>、<code>sonic-swss/orchagent/routeorch.cpp</code>、<code>sonic-bgpcfgd</code>"]],

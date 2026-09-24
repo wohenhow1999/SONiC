@@ -1,7 +1,7 @@
 S.register({
   id: 'reboot',
   category: 'ops',
-  order: 4,
+  order: 6,
   title: 'Warm / Fast / Cold Reboot',
   en: 'Reboot Types',
   summary: "Cold、fast 與 warm reboot 的機制與資料平面中斷時間比較，以及 warm reboot 如何保存狀態、以 kexec 重啟並在開機後 reconcile。",

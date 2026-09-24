@@ -1,7 +1,7 @@
 S.register({
   id: 'vxlan',
-  category: 'adv',
-  order: 2,
+  category: 'dc',
+  order: 1,
   title: 'VXLAN 與 BGP EVPN',
   en: 'VXLAN & BGP EVPN',
   summary: 'SONiC 以 VXLAN 提供跨 L3 underlay 的 L2 延伸與 L3 VRF 隔離，控制平面使用 FRR 的 BGP EVPN。vxlanmgrd 建立 kernel VXLAN 介面，fdbsyncd 同步 EVPN 學到的遠端 MAC 與 VTEP，VxlanOrch 與 FdbOrch 下發 SAI tunnel 物件。',

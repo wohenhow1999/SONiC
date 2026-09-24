@@ -1,7 +1,7 @@
 S.register({
   id: 'counters',
   category: 'ops',
-  order: 3,
+  order: 4,
   title: '計數器與遙測',
   en: 'Counters & Telemetry',
   summary: "Flex Counter 機制讓 syncd 依設定週期性從 ASIC 讀取統計值並寫入 COUNTERS_DB；CLI、SNMP 與 gNMI 皆由此取得計數器資料。",

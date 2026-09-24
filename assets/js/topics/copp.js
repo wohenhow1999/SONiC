@@ -12,8 +12,8 @@
 
   S.register({
     id: 'copp',
-    category: 'net',
-    order: 7,
+    category: 'svc',
+    order: 2,
     title: 'CoPP 與 CPU 封包路徑',
     en: 'Control Plane Policing',
     summary: "CoPP 決定哪些封包由 ASIC 送往 CPU、使用哪個佇列與速率上限。設定由 copp_cfg.json 載入 CONFIG_DB，經 coppmgrd 與 CoppOrch 轉為 SAI hostif trap、trap group 與 policer。",

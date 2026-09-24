@@ -1,6 +1,6 @@
 S.register({
   id: 'port',
-  category: 'net',
+  category: 'l2',
   order: 1,
   title: 'Port 與介面初始化',
   en: 'Port Initialization',

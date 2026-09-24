@@ -5,8 +5,8 @@
 
   S.register({
     id: 'qos',
-    category: 'adv',
-    order: 1,
+    category: 'svc',
+    order: 3,
     title: 'QoS 與 Buffer 管理',
     en: 'QoS, Buffers & PFC',
     summary: 'SONiC 的 QoS 由分類對應表（DSCP → TC → Queue / PG）、排程器、WRED/ECN 與緩衝區設定組成。lossless 流量（如 RoCE）另需 PFC 與 headroom 計算，並由 PFC watchdog 防止 PFC storm。',
