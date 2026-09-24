@@ -2,21 +2,20 @@ S.register({
   id: 'lag',
   category: 'net',
   order: 4,
-  icon: '🔗',
   title: 'PortChannel / LAG',
   en: 'Link Aggregation (teamd)',
-  summary: 'SONiC 用 libteam 的 teamd 跑 LACP，把多條實體鏈路綁成一條邏輯鏈路（PortChannel）。teammgrd、teamsyncd 與 PortsOrch 分別負責設定、同步與硬體下發。',
+  summary: "PortChannel 以 libteam 的 teamd 執行 LACP。teammgrd 負責建立 team 與成員，teamsyncd 回報成員狀態，PortsOrch 依狀態建立或移除 SAI LAG_MEMBER。",
+  meta: [["容器", ["teamd"]], ["程序", ["teammgrd", "teamsyncd", "teamd (per LAG)", "orchagent (PortsOrch)"]], ["資料表", ["CONFIG_DB PORTCHANNEL / PORTCHANNEL_MEMBER", "APPL_DB LAG_TABLE / LAG_MEMBER_TABLE", "STATE_DB LAG_TABLE"]], ["工具", ["teamdctl <lag> state", "show interfaces portchannel"]]],
   tags: ['LAG', 'PortChannel', 'LACP', 'teamd', 'teammgrd', 'teamsyncd'],
-  features: ['LAG 架構圖', 'LACP 成員狀態模擬', '虛擬交換機終端機'],
   html: `
-<h2>架構</h2>
+<h2>元件與資料流</h2>
 <div id="d-lag"></div>
 
 <h2>LACP 成員狀態模擬</h2>
 <p>兩台交換機之間用 3 條線組成 PortChannel0001。切換每條鏈路或對端設定，看看 LACP 如何決定哪些成員「Selected」並寫進 ASIC 的 LAG_MEMBER。</p>
 <div id="lacp"></div>
 
-<h2>重要設定</h2>
+<h2>PORTCHANNEL 設定欄位</h2>
 <table>
 <thead><tr><th>欄位（CONFIG_DB PORTCHANNEL）</th><th>說明</th></tr></thead>
 <tbody>
@@ -26,7 +25,7 @@ S.register({
 <tr><td><code>mtu</code>、<code>admin_status</code></td><td>與一般介面相同</td></tr>
 </tbody></table>
 
-<h2>動手玩</h2>
+<h2>操作示範</h2>
 <div id="term"></div>
 <pre><span class="c"># 真實設備上常用</span>
 show interfaces portchannel
@@ -77,7 +76,7 @@ docker exec -it teamd teamdctl PortChannel0001 state</pre>
     function draw() {
       box.innerHTML = '';
       const r1 = S.el('div', { class: 'row' }, S.el('b', null, '鏈路：'));
-      links.forEach((l, i) => r1.appendChild(S.el('button', { class: 'btn sm' + (l.up ? ' on' : ''), onclick: () => { l.up = !l.up; draw(); } }, (l.up ? '🟢 ' : '🔴 ') + l.p)));
+      links.forEach((l, i) => r1.appendChild(S.el('button', { class: 'btn sm' + (l.up ? ' on' : ''), onclick: () => { l.up = !l.up; draw(); } }, S.el('span', { class: 'dot ' + (l.up ? 'up' : 'down') }), l.p + (l.up ? ' up' : ' down'))));
       const r2 = S.el('div', { class: 'row', style: 'margin-top:8px' }, S.el('b', null, '對端：'),
         S.el('button', { class: 'btn sm' + (peerLacp ? ' on' : ''), onclick: () => { peerLacp = !peerLacp; draw(); } }, peerLacp ? 'LACP 已啟用' : 'LACP 未啟用'),
         ...links.map((l, i) => S.el('button', { class: 'btn sm' + (peerInLag[i] ? ' on' : ''), onclick: () => { peerInLag[i] = !peerInLag[i]; draw(); } }, `${l.p} 對端${peerInLag[i] ? '在' : '不在'}同一 LAG`)));
@@ -90,7 +89,7 @@ docker exec -it teamd teamdctl PortChannel0001 state</pre>
       const t = S.el('table', { style: 'margin-top:12px' });
       t.innerHTML = `<thead><tr><th>成員</th><th>實體鏈路</th><th>LACP</th><th>APPL_DB status</th><th>ASIC LAG_MEMBER</th></tr></thead><tbody>${links.map((l, i) => {
         const why = !l.up ? '鏈路 down' : !peerLacp ? '收不到對端 LACPDU' : !peerInLag[i] ? '對端的 LAG ID 不同（不聚合）' : 'Selected';
-        return `<tr><td class="mono">${l.p}</td><td>${l.up ? '<span class="badge g">up</span>' : '<span class="badge r">down</span>'}</td><td>${sel[i] ? '<span class="badge g">(S) Selected</span>' : `<span class="badge r">(D) ${why}</span>`}</td><td class="mono">${sel[i] ? 'enabled' : 'disabled'}</td><td>${sel[i] ? '✅ 已建立' : '— 已移除'}</td></tr>`;
+        return `<tr><td class="mono">${l.p}</td><td>${l.up ? '<span class="badge g">up</span>' : '<span class="badge r">down</span>'}</td><td>${sel[i] ? '<span class="badge g">(S) Selected</span>' : `<span class="badge r">(D) ${why}</span>`}</td><td class="mono">${sel[i] ? 'enabled' : 'disabled'}</td><td>${sel[i] ? '已建立' : '— 已移除'}</td></tr>`;
       }).join('')}</tbody>`;
       box.appendChild(t);
       box.appendChild(S.el('div', { class: 'dg-desc', html: `PortChannel0001：<b>${nsel}</b> 個成員 selected，min_links=${minLinks} → oper <span class="badge ${lagUp ? 'g' : 'r'}">${lagUp ? 'UP' : 'DOWN'}</span>。${lagUp ? '' : '成員數不足 min_links，整個 PortChannel 變成 down，上面的路由會撤掉並改走其他路徑。'}` }));
@@ -116,10 +115,6 @@ docker exec -it teamd teamdctl PortChannel0001 state</pre>
     '只有 LACP selected（status=enabled）的成員才會在 ASIC 建立 LAG_MEMBER。',
     'min_links 決定 PortChannel 需要幾個成員才算 up。',
     'LAG 成員不能單獨設 IP 或加入 VLAN，要對 PortChannel 本身設定。',
-  ],
-  quiz: [
-    { q: '在 SONiC 中執行 LACP 協定的是？', options: ['orchagent', 'teamd', 'lldpd', 'syncd'], answer: 1, explain: 'teamd（libteam）負責 LACP，每個 PortChannel 一個程序。' },
-    { q: '成員鏈路 up，但對端沒啟用 LACP，會怎樣？', options: ['成員照樣轉發', '成員不會被 selected，不會加入 ASIC LAG_MEMBER（除非開 fallback）', 'PortChannel 自動刪除', '交換機重開機'], answer: 1, explain: '收不到 LACPDU 時成員為 deselected；fallback 模式才允許單一成員轉發。' },
   ],
   related: ['port', 'vlan', 'routing'],
   refs: [['LAG / teamd 設計文件', 'https://github.com/sonic-net/SONiC/tree/master/doc']],

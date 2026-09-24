@@ -2,17 +2,16 @@ S.register({
   id: 'build',
   category: 'ops',
   order: 5,
-  icon: '🏗️',
   title: '建置與安裝映像',
   en: 'Build & Install',
-  summary: '從 sonic-buildimage 原始碼編出安裝檔，透過 ONIE 安裝到交換機，再用 sonic-installer 升級與切換版本。了解 SONiC 映像在硬碟上的樣子。',
+  summary: "從 sonic-buildimage 編譯 SONiC 安裝映像、以 ONIE 首次安裝，以及使用 sonic-installer 管理多版本映像與升級。",
+  meta: [["倉庫", ["sonic-net/sonic-buildimage"]], ["產物", ["target/sonic-<platform>.bin", "target/sonic-vs.img.gz", "target/docker-*.gz"]], ["工具", ["make configure PLATFORM=…", "onie-nos-install", "sonic-installer"]], ["磁碟配置", ["/host/image-<version>/", "/host/grub/grub.cfg"]]],
   tags: ['sonic-buildimage', 'ONIE', 'sonic-installer', 'squashfs', 'sonic-vs', 'KVM'],
-  features: ['建置與安裝流程圖', 'sonic-installer 模擬器'],
   html: `
-<h2>從原始碼到交換機</h2>
+<h2>建置與安裝流程</h2>
 <div id="d-build"></div>
 
-<h2>自己編一個 SONiC</h2>
+<h2>建置步驟</h2>
 <pre><span class="c"># 1. 取得原始碼（包含大量 submodule：sonic-swss、sonic-sairedis、sonic-utilities…）</span>
 git clone --recurse-submodules https://github.com/sonic-net/sonic-buildimage.git
 cd sonic-buildimage
@@ -23,9 +22,9 @@ make configure PLATFORM=vs
 <span class="c"># 4. 編譯（會在 sonic-slave 容器中進行，需要大量磁碟與時間）</span>
 make SONIC_BUILD_JOBS=4 target/sonic-vs.img.gz
 <span class="c">#    硬體平台則是例如：make target/sonic-broadcom.bin</span></pre>
-<div class="callout tip"><div class="ct">💡 想在電腦上玩 SONiC？</div><p><b>sonic-vs</b>（Virtual Switch）是用軟體 SAI（saivs）模擬 ASIC 的版本，可以用 KVM 或 Docker（docker-sonic-vs）跑起來，非常適合學習與開發測試，不需要買交換機。</p></div>
+<div class="callout tip"><div class="ct">虛擬平台</div><p><b>sonic-vs</b>（Virtual Switch）是用軟體 SAI（saivs）模擬 ASIC 的版本，可以用 KVM 或 Docker（docker-sonic-vs）跑起來，非常適合學習與開發測試，不需要買交換機。</p></div>
 
-<h2>硬碟上的映像</h2>
+<h2>映像檔的磁碟配置</h2>
 <p>SONiC 支援同時安裝多個版本，每個版本放在 <code>/host/image-&lt;version&gt;/</code>，GRUB 決定開哪一個：</p>
 <pre>/host/
 ├── grub/grub.cfg                  <span class="c"># 開機選單</span>
@@ -38,7 +37,7 @@ make SONIC_BUILD_JOBS=4 target/sonic-vs.img.gz
 └── machine.conf                   <span class="c"># ONIE 提供的平台資訊</span></pre>
 <p class="muted"><code>/etc/sonic/</code>（含 config_db.json）在升級時會被遷移到新映像。</p>
 
-<h2>互動：sonic-installer</h2>
+<h2>sonic-installer 操作模擬</h2>
 <div id="inst"></div>
 `,
   mount(root) {
@@ -96,7 +95,7 @@ make SONIC_BUILD_JOBS=4 target/sonic-vs.img.gz
       st.imgs.forEach(im => {
         if (im !== st.cur && im !== st.next) row.appendChild(S.el('button', { class: 'btn sm', onclick: () => { st.imgs = st.imgs.filter(x => x !== im); out('sudo sonic-installer remove ' + im + ' -y', `Image removed: /host/image-${im.replace('SONiC-OS-', '')}`); } }, 'remove ' + im.replace('SONiC-OS-', '')));
       });
-      row.appendChild(S.el('button', { class: 'btn sm primary', onclick: () => { const prev = st.cur; st.cur = st.next; st.next = st.def; out('sudo reboot', `... 重新開機 ...\n${prev === st.cur ? '仍然是' : '已從 ' + prev + ' 切換到'} ${st.cur}\n$ show version | grep "SONiC Software"\nSONiC Software Version: ${st.cur.replace('-OS', '')}`); } }, '🔄 reboot'));
+      row.appendChild(S.el('button', { class: 'btn sm primary', onclick: () => { const prev = st.cur; st.cur = st.next; st.next = st.def; out('sudo reboot', `... 重新開機 ...\n${prev === st.cur ? '仍然是' : '已從 ' + prev + ' 切換到'} ${st.cur}\n$ show version | grep "SONiC Software"\nSONiC Software Version: ${st.cur.replace('-OS', '')}`); } }, 'reboot'));
       box.appendChild(row);
       const g = S.el('div', { class: 'grid c3', style: 'margin-top:12px' });
       st.imgs.forEach(im => g.appendChild(S.el('div', { class: 'card', style: `box-shadow:none;${im === st.cur ? 'border:2px solid var(--good)' : ''}` },
@@ -104,7 +103,7 @@ make SONIC_BUILD_JOBS=4 target/sonic-vs.img.gz
         S.el('div', { class: 'row', style: 'margin-top:4px' }, im === st.cur ? S.el('span', { class: 'badge g' }, '目前執行中') : null, im === st.next ? S.el('span', { class: 'badge b' }, '下次開機') : null, im === st.def ? S.el('span', { class: 'badge y' }, '預設') : null))));
       box.appendChild(g);
       const t = S.el('div', { class: 'term-out', style: 'background:var(--code-bg);border-radius:8px;margin-top:10px;max-height:260px' });
-      t.innerHTML = log.length ? log.join('') : '<span class="dim">點上方按鈕試試：install → reboot → set-next-boot 回舊版 → reboot（只有這次）→ 再 reboot。</span>';
+      t.innerHTML = log.length ? log.join('') : '<span class="dim">建議順序：install → reboot → set-next-boot 回舊版 → reboot（只有這次）→ 再 reboot。</span>';
       box.appendChild(t);
     }
     draw();
@@ -114,11 +113,6 @@ make SONIC_BUILD_JOBS=4 target/sonic-vs.img.gz
     '產物是 ONIE 相容的 sonic-<platform>.bin；虛擬平台產生 sonic-vs.img.gz。',
     '每個版本安裝在 /host/image-<version>/，以唯讀 squashfs + overlayfs 可寫層組成。',
     'sonic-installer install / set-default / set-next-boot / remove 管理多版本，方便升級與回滾。',
-  ],
-  quiz: [
-    { q: '全新的白牌交換機要安裝 SONiC，通常透過？', options: ['sonic-installer', 'ONIE', 'apt-get', 'Docker'], answer: 1, explain: 'ONIE 是白牌交換機內建的 NOS 安裝環境。' },
-    { q: 'set-next-boot 與 set-default 的差別？', options: ['沒有差別', 'set-next-boot 只影響下一次開機，之後回到 default', 'set-default 只影響下一次', 'set-next-boot 會立即重開機'], answer: 1, explain: 'set-next-boot 適合試新版本，重開一次後自動回到預設版本。' },
-    { q: '不買交換機也能跑 SONiC 學習，應該用？', options: ['sonic-vs（virtual switch）', 'minigraph', 'ONIE', 'pmon'], answer: 0, explain: 'sonic-vs 用軟體 SAI 模擬 ASIC，可在 KVM 或 Docker 中執行。' },
   ],
   related: ['reboot', 'containers', 'overview'],
   refs: [['sonic-buildimage', 'https://github.com/sonic-net/sonic-buildimage'], ['ONIE', 'https://opencomputeproject.github.io/onie/']],

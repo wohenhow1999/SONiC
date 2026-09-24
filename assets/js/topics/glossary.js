@@ -61,19 +61,17 @@
   S.register({
     id: 'glossary',
     category: 'ref',
-    order: 1,
-    icon: '📖',
+    order: 5,
     title: '名詞表',
     en: 'Glossary',
-    summary: 'SONiC 常見術語、元件與縮寫的快速查詢，可依分類篩選或直接搜尋，點選即可跳到相關主題。',
+    summary: "SONiC 常用術語、元件名稱與縮寫，可依分類篩選或搜尋，並連結至對應章節。",
     tags: ['名詞', '縮寫', '術語'],
-    features: ['可搜尋名詞表'],
     html: `<div id="gl"></div>`,
     mount(root) {
       const host = root.querySelector('#gl');
       const cats = ['全部', ...new Set(G.map(g => g[1]))];
       let cat = 0, q = '';
-      const input = S.el('input', { class: 'filter', placeholder: '🔍 輸入關鍵字，例如 SAI、DB、LACP…', style: 'width:100%;font-size:15px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--panel);color:var(--text);margin:10px 0' });
+      const input = S.el('input', { class: 'filter', placeholder: '輸入關鍵字，例如 SAI、DB、LACP…', style: 'width:100%;font-size:15px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;background:var(--panel);color:var(--text);margin:10px 0' });
       const list = S.el('div', { class: 'grid c2' });
       const count = S.el('div', { class: 'muted', style: 'font-size:13px;margin-bottom:8px' });
       input.addEventListener('input', () => { q = input.value.trim().toLowerCase(); draw(); });

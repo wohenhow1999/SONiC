@@ -59,8 +59,8 @@
 
     const root = S.el('div', { class: 'dg' });
     const head = S.el('div', { class: 'dg-head' },
-      S.el('span', { class: 'dg-title' }, '🗺️ ' + (spec.title || '架構圖')),
-      S.el('span', { class: 'dg-hint' }, spec.hint || (spec.steps ? '點選節點看說明，或按「下一步」逐步觀看流程' : '點選任一節點查看說明')));
+      S.el('span', { class: 'dg-title' }, spec.title || '架構圖'),
+      S.el('span', { class: 'dg-hint' }, spec.hint || (spec.steps && !spec.noControls ? '點選元件查看說明，或逐步播放資料流' : '點選元件查看說明')));
     const canvas = S.el('div', { class: 'dg-canvas' });
     const s = svg('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': spec.title || '架構圖' });
     canvas.appendChild(s);
@@ -160,7 +160,7 @@
         const i = S.el('i'); i.style.setProperty('--k', `var(--k-${k})`);
         lg.appendChild(S.el('span', null, i, KIND_NAME[k] || k));
       });
-      if (spec.edges && spec.edges.some(e => e.dash)) lg.appendChild(S.el('span', null, '┈┈ 虛線：通知 / 間接互動'));
+      if (spec.edges && spec.edges.some(e => e.dash)) lg.appendChild(S.el('span', null, S.el('span', { html: '<svg width="22" height="6"><path d="M0 3h22" stroke="currentColor" stroke-dasharray="4 3"/></svg>' }), '通知 / 間接互動'));
       root.appendChild(lg);
     }
 
@@ -173,10 +173,10 @@
 
     let prevBtn, nextBtn, playBtn, dots;
     if (steps.length && !spec.noControls) {
-      prevBtn = S.el('button', { class: 'btn sm', onclick: () => go(cur - 1) }, '◀ 上一步');
-      nextBtn = S.el('button', { class: 'btn sm primary', onclick: () => go(cur + 1) }, '下一步 ▶');
-      playBtn = S.el('button', { class: 'btn sm', onclick: togglePlay }, '⏵ 自動播放');
-      const reset = S.el('button', { class: 'btn sm', onclick: () => { stop(); go(-1); } }, '↺ 重設');
+      prevBtn = S.el('button', { class: 'btn sm', onclick: () => go(cur - 1) }, '上一步');
+      nextBtn = S.el('button', { class: 'btn sm primary', onclick: () => go(cur + 1) }, '下一步');
+      playBtn = S.el('button', { class: 'btn sm', onclick: togglePlay }, '自動播放');
+      const reset = S.el('button', { class: 'btn sm', onclick: () => { stop(); go(-1); } }, '重設');
       dots = S.el('div', { class: 'dg-dots' });
       steps.forEach((st, i) => dots.appendChild(S.el('button', { title: st.title, onclick: () => { stop(); go(i); } }, String(i + 1))));
       stepsBox.appendChild(S.el('div', { class: 'dg-ctrl' }, prevBtn, nextBtn, playBtn, reset, dots));
@@ -200,8 +200,8 @@
 
     function showIntro() {
       desc.innerHTML = spec.intro || (steps.length && !spec.noControls
-        ? `<span class="muted">此圖共有 <b>${steps.length}</b> 個步驟。按「下一步 ▶」開始，或直接點選任一節點查看它的角色。</span>`
-        : '<span class="muted">👆 點選圖中的任一方塊，這裡會顯示它的說明。</span>');
+        ? `<span class="muted">共 ${steps.length} 個步驟。按「下一步」開始逐步播放，或點選任一元件查看其職責。</span>`
+        : '<span class="muted">點選圖中任一元件，此處顯示其職責與相關資料。</span>');
     }
 
     function go(i) {
@@ -214,21 +214,21 @@
       s.classList.add('dimmed');
       (st.nodes || []).forEach(n => nodeEls[n] && nodeEls[n].classList.add('hl'));
       (st.edges || []).forEach(hlEdge);
-      desc.innerHTML = `<div class="st">${spec.noControls ? '' : `步驟 ${cur + 1} / ${steps.length}：`}${st.title}</div><div>${st.text || ''}</div>`;
+      desc.innerHTML = `<div class="st">${spec.noControls ? '' : `<span class="sn">${cur + 1}/${steps.length}</span>`}${st.title}</div><div>${st.text || ''}</div>`;
       if (cur >= steps.length - 1) stop();
     }
 
     function togglePlay() {
       if (timer) { stop(); return; }
       if (cur >= steps.length - 1) go(-1);
-      playBtn.textContent = '⏸ 暫停';
+      playBtn.textContent = '暫停';
       go(cur + 1);
       timer = setInterval(() => { if (cur >= steps.length - 1) stop(); else go(cur + 1); }, spec.interval || 3200);
     }
     function stop() {
       if (timer) clearInterval(timer);
       timer = null;
-      if (playBtn) playBtn.textContent = '⏵ 自動播放';
+      if (playBtn) playBtn.textContent = '自動播放';
     }
 
     function selectNode(nid) {
@@ -248,7 +248,7 @@
           nodeEls[other] && nodeEls[other].classList.add('hl');
         }
       });
-      desc.innerHTML = `<div class="nt" style="--k:var(--k-${n.kind || 'proc'})"><i></i>${S.esc(n.label.replace(/\n/g, ' '))}<span class="muted" style="font-weight:400;font-size:13px">${KIND_NAME[n.kind || 'proc'] || ''}</span></div><div>${n.info || '<span class="muted">（此節點無額外說明）</span>'}</div>`;
+      desc.innerHTML = `<div class="nt" style="--k:var(--k-${n.kind || 'proc'})"><i></i>${S.esc(n.label.replace(/\n/g, ' '))}<span class="kind">${KIND_NAME[n.kind || 'proc'] || ''}</span></div><div>${n.info || '<span class="muted">（此節點無額外說明）</span>'}</div>`;
     }
 
     go(-1);

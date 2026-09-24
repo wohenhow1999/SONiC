@@ -2,35 +2,34 @@ S.register({
   id: 'overview',
   category: 'intro',
   order: 1,
-  icon: '🌐',
-  title: 'SONiC 是什麼？',
+  title: 'SONiC 概述',
   en: 'What is SONiC',
-  summary: 'SONiC 是以 Debian Linux 為基礎、跑在白牌交換機上的開源網路作業系統。它把網路功能拆成許多 Docker 容器，彼此透過 Redis 資料庫溝通，再經由 SAI 與各家交換晶片對話。',
+  summary: "SONiC 是以 Debian Linux 為基礎的開源網路作業系統，將網路功能拆分為多個 Docker 容器，以 Redis 作為元件間的狀態交換中心，並透過 SAI 與不同廠商的交換晶片介接。",
+  meta: [["維護組織", "SONiC Foundation（Linux Foundation），GitHub：<code>sonic-net</code>"], ["基底系統", ["Debian 12 (bookworm)", "Linux 6.1"]], ["發行節奏", "每年兩個分支，以年月命名，例如 <code>202311</code>、<code>202405</code>、<code>202411</code>"], ["硬體抽象", ["SAI (OCP)", "Platform API"]]],
   tags: ['入門', 'SAI', '開源', '白牌交換機', 'Disaggregation'],
-  features: ['分層架構圖', '傳統 vs SONiC 比較', '發展時間軸'],
   html: `
-<h2>一句話理解 SONiC</h2>
+<h2>定義與設計原則</h2>
 <p><b>SONiC（Software for Open Networking in the Cloud）</b>是 Microsoft 在 2016 年為 Azure 資料中心開源的<b>網路作業系統（NOS）</b>，現由 Linux Foundation 旗下的 SONiC 基金會維護。它的核心想法是「<b>硬體與軟體解耦（disaggregation）</b>」：同一套 SONiC 可以跑在 Broadcom、NVIDIA (Mellanox)、Marvell、Intel 等不同交換晶片的機器上。</p>
-<div class="grid c3">
-  <div class="card"><b>🐧 Linux 為底</b><p class="muted" style="margin:6px 0 0">以 Debian 為基礎，你熟悉的 <code>ip</code>、<code>systemctl</code>、<code>docker</code> 都能用。</p></div>
-  <div class="card"><b>📦 容器化</b><p class="muted" style="margin:6px 0 0">每個功能（BGP、LLDP、SWSS…）都跑在獨立 Docker 容器中，可個別重啟與升級。</p></div>
-  <div class="card"><b>🗄️ Redis 為中心</b><p class="muted" style="margin:6px 0 0">元件之間不直接呼叫，而是透過 Redis 資料庫的「發布/訂閱」交換狀態。</p></div>
-  <div class="card"><b>🔌 SAI 抽象層</b><p class="muted" style="margin:6px 0 0">Switch Abstraction Interface 是統一的 C API，讓上層軟體不用管底下是哪家 ASIC。</p></div>
-  <div class="card"><b>🌍 開源社群</b><p class="muted" style="margin:6px 0 0">原始碼在 GitHub 的 <code>sonic-net</code> 組織，大型雲端業者、電信商與設備商共同開發。</p></div>
-  <div class="card"><b>🗓️ 版本以年月命名</b><p class="muted" style="margin:6px 0 0">例如 <code>202305</code>、<code>202311</code>、<code>202405</code>，大致每半年一個分支。</p></div>
+<div class="defs">
+  <div><b>Linux 為底</b><p>以 Debian 為基礎，你熟悉的 <code>ip</code>、<code>systemctl</code>、<code>docker</code> 都能用。</p></div>
+  <div><b>容器化</b><p>每個功能（BGP、LLDP、SWSS…）都跑在獨立 Docker 容器中，可個別重啟與升級。</p></div>
+  <div><b>Redis 為中心</b><p>元件之間不直接呼叫，而是透過 Redis 資料庫的「發布/訂閱」交換狀態。</p></div>
+  <div><b>SAI 抽象層</b><p>Switch Abstraction Interface 是統一的 C API，讓上層軟體不用管底下是哪家 ASIC。</p></div>
+  <div><b>開源社群</b><p>原始碼在 GitHub 的 <code>sonic-net</code> 組織，大型雲端業者、電信商與設備商共同開發。</p></div>
+  <div><b>版本以年月命名</b><p>例如 <code>202305</code>、<code>202311</code>、<code>202405</code>，大致每半年一個分支。</p></div>
 </div>
 
 <h2>分層架構</h2>
 <p>從上到下，SONiC 可以看成下面幾層。點選每一層看它負責什麼，或按「下一步」看一個設定是怎麼從上層一路流到硬體的。</p>
 <div id="d-layers"></div>
 
-<h2>傳統網通設備 vs SONiC</h2>
+<h2>與傳統封閉式 NOS 的比較</h2>
 <div id="cmp"></div>
 
-<h2>發展時間軸</h2>
+<h2>發展沿革</h2>
 <div id="tl"></div>
 
-<div class="callout tip"><div class="ct">🎯 讀完這個網站，你會懂</div>
+<div class="callout tip"><div class="ct">閱讀方式</div>
 <p>設定一條 VLAN 時，資料是如何從 <code>config</code> 指令 → CONFIG_DB → vlanmgrd → APPL_DB → orchagent → ASIC_DB → syncd → SAI → 交換晶片，一路走下去的。這條「資料流」是理解 SONiC 最重要的一把鑰匙。</p></div>
 `,
   mount(root) {
@@ -44,7 +43,7 @@ S.register({
         { id: 'apps', x: L, y: 102, w: W, h: 48, label: '控制平面應用：BGP (FRR) / LLDP / LACP (teamd) / DHCP Relay', kind: 'container',
           info: '<p>跑「網路協定」的容器。例如 <b>bgp</b> 容器中的 FRR 負責跟鄰居交換路由、<b>teamd</b> 跑 LACP、<b>lldp</b> 發現鄰居設備。</p><p>它們把協定算出來的結果（路由、LAG 成員狀態…）寫入 Redis 的 <code>APPL_DB</code>。</p>' },
         { id: 'redis', x: L, y: 184, w: W, h: 48, label: 'Redis 資料庫（database 容器）：CONFIG_DB / APPL_DB / STATE_DB / ASIC_DB …', kind: 'db',
-          info: '<p>SONiC 的<b>中樞神經</b>。所有元件都只跟 Redis 溝通，而不互相直接呼叫：</p><ul><li><code>CONFIG_DB</code>：使用者設定</li><li><code>APPL_DB</code>：應用程式想要的狀態</li><li><code>STATE_DB</code>：各元件目前的實際狀態</li><li><code>ASIC_DB</code>：要寫進晶片的 SAI 物件</li><li><code>COUNTERS_DB</code>：流量統計</li></ul><p>👉 詳見「Redis 資料庫」主題。</p>' },
+          info: '<p>SONiC 的<b>中樞神經</b>。所有元件都只跟 Redis 溝通，而不互相直接呼叫：</p><ul><li><code>CONFIG_DB</code>：使用者設定</li><li><code>APPL_DB</code>：應用程式想要的狀態</li><li><code>STATE_DB</code>：各元件目前的實際狀態</li><li><code>ASIC_DB</code>：要寫進晶片的 SAI 物件</li><li><code>COUNTERS_DB</code>：流量統計</li></ul><p>詳見「Redis 資料庫」主題。</p>' },
         { id: 'swss', x: L, y: 266, w: W, h: 48, label: 'SWSS：orchagent + 各種 *mgrd / *syncd', kind: 'proc',
           info: '<p><b>Switch State Service</b>，SONiC 的大腦。</p><ul><li><b>*mgrd</b>（vlanmgrd、intfmgrd…）：把 CONFIG_DB 設定套到 Linux kernel，再寫進 APPL_DB</li><li><b>*syncd</b>（portsyncd、neighsyncd、fpmsyncd…）：把 kernel / 協定的狀態同步到 APPL_DB</li><li><b>orchagent</b>：讀 APPL_DB，轉成 SAI 物件寫到 ASIC_DB</li></ul>' },
         { id: 'syncd', x: L, y: 348, w: W, h: 48, label: 'syncd + SAI（廠商提供的 libsai.so）', kind: 'proc',
@@ -84,8 +83,8 @@ S.register({
     const box = S.el('div', { class: 'w-box' });
     const body = S.el('div');
     const data = [
-      { h: '🏢 傳統封閉式設備', rows: [['軟硬體', '同一家廠商綁在一起販售'], ['作業系統', '廠商私有 OS，內部不公開'], ['新功能', '等廠商排程，無法自行修改'], ['自動化', '依賴廠商提供的 CLI / API'], ['更換硬體', '換廠牌 = 換整套操作方式'], ['除錯', '通常要開 case 給原廠']] },
-      { h: '🌐 SONiC', rows: [['軟硬體', '白牌/品牌硬體 + 開源 NOS，自由搭配'], ['作業系統', 'Debian Linux，原始碼完全公開'], ['新功能', '可自行開發或採用社群成果'], ['自動化', 'Redis DB、gNMI、JSON 設定檔，容易程式化'], ['更換硬體', '只要有 SAI 實作，同一套 SONiC 照跑'], ['除錯', '可直接看 Redis 與 log、讀原始碼']] },
+      { h: '傳統封閉式設備', rows: [['軟硬體', '同一家廠商綁在一起販售'], ['作業系統', '廠商私有 OS，內部不公開'], ['新功能', '等廠商排程，無法自行修改'], ['自動化', '依賴廠商提供的 CLI / API'], ['更換硬體', '換廠牌 = 換整套操作方式'], ['除錯', '通常要開 case 給原廠']] },
+      { h: 'SONiC', rows: [['軟硬體', '白牌/品牌硬體 + 開源 NOS，自由搭配'], ['作業系統', 'Debian Linux，原始碼完全公開'], ['新功能', '可自行開發或採用社群成果'], ['自動化', 'Redis DB、gNMI、JSON 設定檔，容易程式化'], ['更換硬體', '只要有 SAI 實作，同一套 SONiC 照跑'], ['除錯', '可直接看 Redis 與 log、讀原始碼']] },
     ];
     S.seg(box, data.map(d => d.h), i => {
       body.innerHTML = `<table><thead><tr><th>面向</th><th>${data[i].h}</th></tr></thead><tbody>${data[i].rows.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('')}</tbody></table>`;
@@ -111,7 +110,7 @@ S.register({
       ev2.currentTarget.classList.add('on');
       detail.innerHTML = `<div class="st">${e[0]}</div>${e[1]}`;
     } }, e[0])));
-    wrap.appendChild(S.el('h4', null, '📅 點選年份'));
+    wrap.appendChild(S.el('h4', null, '點選年份'));
     wrap.appendChild(bar);
     wrap.appendChild(detail);
     tl.appendChild(wrap);
@@ -122,11 +121,6 @@ S.register({
     '元件之間透過 Redis 發布/訂閱互相溝通，而不是直接呼叫，因此彼此鬆耦合、可個別重啟。',
     'SAI 讓同一套 SONiC 能跑在不同廠牌的交換晶片上，是「軟硬體解耦」的關鍵。',
     '設定的典型流向：CLI → CONFIG_DB → SWSS(*mgrd) → APPL_DB → orchagent → ASIC_DB → syncd → SAI → ASIC。',
-  ],
-  quiz: [
-    { q: 'SONiC 的元件之間主要透過什麼方式交換資料？', options: ['直接 RPC 呼叫', 'Redis 資料庫的發布/訂閱', '共享記憶體', '讀寫 /etc 下的設定檔'], answer: 1, explain: 'SONiC 以 Redis 為中心，元件只讀寫 Redis，因此彼此解耦。' },
-    { q: 'SAI 的主要目的為何？', options: ['提供網頁管理介面', '讓上層軟體用統一 API 操作不同廠商的交換晶片', '負責 BGP 選路', '管理 Docker 容器'], answer: 1, explain: 'SAI（Switch Abstraction Interface）是一組標準 C API，由晶片廠商提供實作。' },
-    { q: 'SONiC 以哪一個 Linux 發行版為基礎？', options: ['Ubuntu', 'CentOS', 'Debian', 'Alpine'], answer: 2, explain: 'SONiC 的 base image 是 Debian（例如 202405 使用 Debian 12 bookworm）。' },
   ],
   related: ['architecture', 'redis-db', 'syncd-sai'],
   refs: [

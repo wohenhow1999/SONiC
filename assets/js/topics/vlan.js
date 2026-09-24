@@ -2,24 +2,23 @@ S.register({
   id: 'vlan',
   category: 'net',
   order: 3,
-  icon: '🏷️',
   title: 'VLAN 與 L2 橋接',
   en: 'VLAN & Bridging',
-  summary: 'SONiC 在 Linux 用一個 vlan-aware bridge 模擬 L2，在 ASIC 用 SAI VLAN、Bridge Port、VLAN Member 建立真正的轉發表；VLAN 介面（SVI）加上 IP 就能做 L3 閘道。',
+  summary: "SONiC 在 Linux 以單一 vlan-aware bridge 表示 L2，在 ASIC 以 VLAN、BRIDGE_PORT、VLAN_MEMBER 物件建立轉發；VLAN 介面加上 IP 後以 ROUTER_INTERFACE 提供 L3 閘道。",
+  meta: [["程序", ["vlanmgrd", "intfmgrd", "orchagent (PortsOrch, IntfsOrch)"]], ["資料表", ["CONFIG_DB VLAN / VLAN_MEMBER / VLAN_INTERFACE", "APPL_DB VLAN_TABLE / VLAN_MEMBER_TABLE", "STATE_DB VLAN_TABLE"]], ["SAI 物件", ["VLAN", "BRIDGE_PORT", "VLAN_MEMBER", "ROUTER_INTERFACE"]], ["原始碼", "<code>sonic-swss/cfgmgr/vlanmgr.cpp</code>"]],
   tags: ['VLAN', 'vlanmgrd', 'Bridge', 'SVI', 'tagged', 'untagged', 'VLAN_MEMBER'],
-  features: ['VLAN 設定流程動畫', '虛擬交換機終端機'],
   html: `
-<h2>VLAN 在兩個世界的樣子</h2>
+<h2>kernel 與 ASIC 兩側的 VLAN 模型</h2>
 <p>同一個 VLAN 設定，會同時出現在 <b>Linux kernel</b>（給控制平面程式用）與 <b>ASIC</b>（真正轉發）兩邊。</p>
 <div id="d-vlan"></div>
 
 <h2>Tagged 與 Untagged</h2>
-<div class="grid c2">
-  <div class="card"><b>Untagged（access）</b><p class="muted" style="margin:6px 0 0">封包進出時<b>不帶</b> 802.1Q 標籤，這個 VLAN 就是該 port 的 PVID。一個 port 只能 untagged 在一個 VLAN。<br><code>config vlan member add -u 100 Ethernet8</code></p></div>
-  <div class="card"><b>Tagged（trunk）</b><p class="muted" style="margin:6px 0 0">封包帶 VLAN tag，一個 port 可以同時 tagged 在多個 VLAN，常用於交換機之間或接伺服器的 hypervisor。<br><code>config vlan member add 100 Ethernet8</code></p></div>
+<div class="defs">
+  <div><b>Untagged（access）</b><p>封包進出時<b>不帶</b> 802.1Q 標籤，這個 VLAN 就是該 port 的 PVID。一個 port 只能 untagged 在一個 VLAN。<br><code>config vlan member add -u 100 Ethernet8</code></p></div>
+  <div><b>Tagged（trunk）</b><p>封包帶 VLAN tag，一個 port 可以同時 tagged 在多個 VLAN，常用於交換機之間或接伺服器的 hypervisor。<br><code>config vlan member add 100 Ethernet8</code></p></div>
 </div>
 
-<h2>相關的 DB 表</h2>
+<h2>DB 表對照</h2>
 <table>
 <thead><tr><th>CONFIG_DB</th><th>APPL_DB</th><th>ASIC_DB（SAI 物件）</th></tr></thead>
 <tbody>
@@ -27,10 +26,10 @@ S.register({
 <tr><td><code>VLAN_MEMBER|Vlan100|Ethernet8</code></td><td><code>VLAN_MEMBER_TABLE:Vlan100:Ethernet8</code></td><td><code>BRIDGE_PORT</code> + <code>VLAN_MEMBER</code></td></tr>
 <tr><td><code>VLAN_INTERFACE|Vlan100|192.168.100.1/24</code></td><td><code>INTF_TABLE:Vlan100:192.168.100.1/24</code></td><td><code>ROUTER_INTERFACE</code>（type VLAN）+ 路由</td></tr>
 </tbody></table>
-<div class="callout warn"><div class="ct">⚠️ 常見錯誤</div>
+<div class="callout warn"><div class="ct">常見錯誤</div>
 <p>已經設了 IP 的 port（routed port）不能再加入 VLAN，會出現 <code>Ethernet0 is a router interface!</code>；同樣地，LAG 成員也不能直接加入 VLAN（要把 PortChannel 加入 VLAN）。在下方終端機試試看。</p></div>
 
-<h2>動手玩：建立一個 VLAN 並加上閘道 IP</h2>
+<h2>操作示範：建立 VLAN 與 SVI</h2>
 <p>依序點下面的指令，觀察每一步在 Linux（vlanmgrd 下的指令）與 ASIC（建立的 SAI 物件）產生的變化。</p>
 <div id="term"></div>
 `,
@@ -100,11 +99,6 @@ S.register({
     'ASIC 端需要三種 SAI 物件：VLAN、BRIDGE_PORT、VLAN_MEMBER；加 IP 後再建立 VLAN 型別的 ROUTER_INTERFACE。',
     'untagged 決定 port 的 PVID，一個 port 只能 untagged 於一個 VLAN；tagged 可以有多個。',
     '刪除 VLAN 前要先移除所有成員與 IP。',
-  ],
-  quiz: [
-    { q: 'SONiC 在 Linux kernel 中如何實作多個 VLAN？', options: ['每個 VLAN 一個 bridge', '一個開啟 VLAN filtering 的 bridge', '用 OVS', '不在 kernel 實作'], answer: 1, explain: 'vlanmgrd 建立單一 vlan-aware bridge「Bridge」，用 bridge vlan 設定區分。' },
-    { q: '把 port 加入 VLAN 時，ASIC 端需要先建立哪個物件？', options: ['ROUTER_INTERFACE', 'BRIDGE_PORT', 'NEXT_HOP', 'LAG'], answer: 1, explain: 'port 要先成為 .1Q bridge 的 bridge port，才能建立 VLAN_MEMBER。' },
-    { q: '執行 <code>config vlan del 100</code> 出錯，最可能是？', options: ['VLAN 還有成員或 IP', 'VLAN ID 太大', 'Redis 故障', '需要重開機'], answer: 0, explain: 'SONiC 要求先移除成員與 VLAN_INTERFACE 的 IP。' },
   ],
   related: ['neighbor', 'lag', 'port', 'cli-lab'],
   refs: [['SONiC Configuration（VLAN 範例）', 'https://github.com/sonic-net/SONiC/wiki/Configuration']],

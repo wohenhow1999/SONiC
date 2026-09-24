@@ -1,25 +1,26 @@
-# SONiC 百科 📖
+# SONiC 架構參考
 
-一個互動式的 **SONiC（Software for Open Networking in the Cloud）系統架構學習網站**。每個主題都有可點擊的架構圖、逐步資料流動畫、互動元件與小測驗，也提供一台可以輸入真實 SONiC 指令的「虛擬交換機」。
+SONiC（Software for Open Networking in the Cloud）系統架構、資料流與維運的參考網站，對象為網路工程師與 SONiC 開發者。每一章包含技術摘要（容器、程序、資料表、原始碼、記錄檔）、可操作的架構圖與逐步資料流，並附可執行 SONiC 指令的模擬環境。
 
-## 特色
+## 內容
 
-- 🗺️ **互動架構圖**：點選任一元件看說明，或按「下一步」逐步觀看資料如何在元件間流動
-- 💻 **虛擬交換機終端機**：輸入 `sudo config vlan add 100`、`show ip route`、`sonic-db-cli ASIC_DB keys "*"` 等指令，即時看到 CONFIG_DB → APPL_DB → STATE_DB → ASIC_DB 的變化，以及背後每個 daemon 做了什麼
-- 🧪 **主題專屬模擬器**：orchagent 相依性、ECMP 雜湊、LACP 成員狀態、MAC 學習、ACL 規則比對、CoPP 封包路徑、散熱策略、即時計數器、reboot 時間軸、sonic-installer…
-- ❓ 每個主題都有重點整理與小測驗，並可追蹤閱讀進度
-- 🔍 全文搜尋（按 `/` 快速搜尋）、深色模式、手機版排版
-
-## 主題
-
-| 分類 | 主題 |
+| 部分 | 章節 |
 |---|---|
-| 入門 | SONiC 是什麼？、系統架構總覽、Docker 容器一覽 |
-| 核心元件 | Redis 資料庫、SWSS 與 orchagent、syncd 與 SAI |
-| 網路功能 | Port 與介面初始化、路由與 BGP（FRR）、VLAN 與 L2 橋接、PortChannel / LAG、ARP 鄰居與 MAC 學習、ACL、CoPP 與 CPU 封包路徑 |
-| 平台與維運 | 設定管理、平台監控 pmon、計數器與遙測、Warm / Fast / Cold Reboot、建置與安裝映像 |
-| 實驗室 | 虛擬交換機實驗室（8 個闖關任務） |
-| 參考 | 名詞表 |
+| 1 基礎概念 | SONiC 概述、系統架構總覽、Docker 容器一覽 |
+| 2 核心架構 | Redis 資料庫、SWSS 與 orchagent、syncd 與 SAI |
+| 3 L2 / L3 功能 | Port 與介面初始化、路由與 BGP（FRR）、VLAN 與 L2 橋接、PortChannel / LAG、鄰居解析與 MAC 學習、ACL、CoPP 與 CPU 封包路徑 |
+| 4 進階功能 | QoS 與 Buffer 管理、VXLAN 與 BGP EVPN |
+| 5 平台與維運 | 設定管理、平台監控、計數器與遙測、Warm / Fast / Cold Reboot、建置與安裝映像、故障排除方法 |
+| 6 實作 | 模擬操作環境 |
+| 附錄 | CONFIG_DB 表格參考、CLI 指令參考、檔案與日誌路徑、原始碼倉庫地圖、名詞表 |
+
+## 功能
+
+- 架構圖：點選元件查看職責與相關資料，或逐步播放資料流
+- 模擬環境：輸入 `sudo config vlan add 100`、`show ip route`、`sonic-db-cli ASIC_DB keys "*"` 等指令，即時顯示 CONFIG_DB / APPL_DB / STATE_DB / ASIC_DB 的變化與各元件的處理順序
+- 章節內的模擬：orchagent 相依性、ECMP 雜湊、LACP、MAC 學習、ACL 比對、CoPP 路徑、DSCP 分類、VXLAN 封裝與 MTU、散熱策略、計數器、reboot 中斷時間、sonic-installer
+- 可篩選的參考表：CONFIG_DB 表格、CLI 指令、檔案路徑、原始碼倉庫
+- 全文搜尋（按 `/`）、本頁目錄、淺色 / 深色主題、行動版排版
 
 ## 使用方式
 
@@ -48,7 +49,7 @@ assets/js/components/
   diagram.js                # 互動架構圖引擎（SVG、節點說明、逐步動畫）
   widgets.js                # 小測驗、分頁、分段按鈕
   sim.js                    # 虛擬 SONiC 交換機模擬器與終端機 UI
-assets/js/topics/*.js       # 每個主題一個檔案
+assets/js/topics/*.js       # 每章一個檔案
 assets/js/app.js            # 路由、側邊欄、搜尋、首頁
 ```
 
@@ -59,14 +60,13 @@ assets/js/app.js            # 路由、側邊欄、搜尋、首頁
 ```js
 S.register({
   id: 'my-topic',           // 網址會是 #/my-topic
-  category: 'net',          // intro | core | net | ops | lab | ref
+  category: 'net',          // intro | core | net | adv | ops | lab | ref
+  meta: [['程序', ['orchagent']], ['原始碼', '<code>sonic-swss/</code>']],
   order: 10,
-  icon: '✨',
   title: '我的主題',
   en: 'My Topic',
   summary: '一句話摘要',
   tags: ['關鍵字'],
-  features: ['首頁卡片上顯示的互動功能'],
   html: `<h2>標題</h2><div id="d1"></div>`,
   mount(root) {
     S.diagram(root.querySelector('#d1'), {
@@ -80,7 +80,6 @@ S.register({
     });
   },
   keypoints: ['重點 1'],
-  quiz: [{ q: '問題？', options: ['A', 'B'], answer: 0, explain: '解釋' }],
   related: ['overview'],
 });
 ```
@@ -91,4 +90,4 @@ S.register({
 
 ## 說明
 
-本站是個人學習用的非官方整理，內容以 SONiC 社群公開文件與原始碼為基礎（約 202305 ~ 202411 版本的行為）。虛擬交換機是**教學用的簡化模型**，實際行為請以 [sonic-net 官方 Wiki](https://github.com/sonic-net/SONiC/wiki) 與原始碼為準。
+本站為非官方整理，內容以 SONiC 社群公開文件與原始碼為基礎（約 202305 ~ 202411 版本的行為）。虛擬交換機是**教學用的簡化模型**，實際行為請以 [sonic-net 官方 Wiki](https://github.com/sonic-net/SONiC/wiki) 與原始碼為準。

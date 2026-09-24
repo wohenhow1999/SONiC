@@ -2,24 +2,23 @@ S.register({
   id: 'config',
   category: 'ops',
   order: 1,
-  icon: '⚙️',
   title: '設定管理',
   en: 'Configuration Management',
-  summary: 'config_db.json、minigraph、sonic-cfggen、config save / reload、GCU 與 YANG——搞清楚 SONiC 的設定從哪來、存在哪、什麼時候生效，以及為什麼「重開機後設定不見了」。',
+  summary: "SONiC 設定的來源、存放與生效時機：config_db.json、minigraph、sonic-cfggen、config save / reload / load、GCU 與 YANG 驗證。",
+  meta: [["設定檔", ["/etc/sonic/config_db.json", "/etc/sonic/minigraph.xml", "/etc/sonic/init_cfg.json", "/etc/sonic/copp_cfg.json"]], ["工具", ["config", "sonic-cfggen", "config apply-patch", "config checkpoint / rollback"]], ["服務", ["config-setup.service", "hostcfgd"]], ["原始碼", "<code>sonic-utilities/config/</code>、<code>sonic-config-engine</code>、<code>sonic-yang-models</code>"]],
   tags: ['config_db.json', 'sonic-cfggen', 'config save', 'config reload', 'minigraph', 'GCU', 'YANG'],
-  features: ['設定生命週期動畫', '存檔/重載實驗', '設定檔範例'],
   html: `
 <h2>設定的生命週期</h2>
 <div id="d-cfg"></div>
 
-<div class="callout warn"><div class="ct">⚠️ 新手最常踩的坑</div>
+<div class="callout warn"><div class="ct">設定不會自動保存</div>
 <p><code>config</code> 指令只改 <b>CONFIG_DB</b>（記憶體中的 Redis），立即生效但<b>不會自動存檔</b>。重開機或 <code>config reload</code> 後，會從 <code>/etc/sonic/config_db.json</code> 重新載入。想保留變更，一定要 <code>sudo config save -y</code>。</p></div>
 
-<h2>實驗：沒存檔的設定會怎樣？</h2>
-<p>依序點下面的指令：先建立 VLAN 300 然後 reload（消失了！），再建立一次、存檔、reload（還在）。</p>
+<h2>save 與 reload 行為</h2>
+<p>依序點下面的指令：先建立 VLAN 300 然後 reload（設定消失），再建立一次、存檔、reload（還在）。</p>
 <div id="term"></div>
 
-<h2>常見指令比較</h2>
+<h2>設定指令比較</h2>
 <table>
 <thead><tr><th>指令</th><th>做什麼</th><th>會中斷流量嗎</th></tr></thead>
 <tbody>
@@ -36,7 +35,7 @@ S.register({
 `,
   mount(root) {
     S.diagram(root.querySelector('#d-cfg'), {
-      title: '設定從哪裡來、到哪裡去',
+      title: '設定的來源與生效路徑',
       w: 1000, h: 420,
       nodes: [
         { id: 'json', x: 20, y: 60, w: 190, h: 56, label: 'config_db.json', sub: '/etc/sonic/', kind: 'file', info: '<p>持久化的設定檔，格式就是 CONFIG_DB 的 JSON 傾印：<code>{"TABLE": {"key": {"field": "value"}}}</code>。</p>' },
@@ -136,11 +135,6 @@ sonic-cfggen -m /etc/sonic/minigraph.xml --print-data</pre>` },
     'config reload 會清空並重載 CONFIG_DB、重啟服務，會中斷流量。',
     'sonic-cfggen 負責載入 JSON / minigraph、印出設定，並用 CONFIG_DB 渲染 Jinja2 範本。',
     'GCU（config apply-patch）以 YANG 驗證並排序步驟，適合自動化的增量變更。',
-  ],
-  quiz: [
-    { q: '用 config 指令加了 VLAN 但沒有 save，重開機後會？', options: ['VLAN 仍在', 'VLAN 消失', '交換機無法開機', '自動存檔'], answer: 1, explain: '重開機會從 config_db.json 載入，未存檔的變更就不見了。' },
-    { q: '想用 CONFIG_DB 的值產生 lldpd.conf，應使用？', options: ['config save', 'sonic-cfggen -d -t lldpd.conf.j2', 'redis-cli', 'config reload'], answer: 1, explain: 'sonic-cfggen -d 讀 CONFIG_DB，-t 渲染 Jinja2 範本。' },
-    { q: 'GCU 的最大優點是？', options: ['速度最快', '用 YANG 驗證並自動排序步驟，降低出錯與中斷', '可以改 ASIC_DB', '不需要 sudo'], answer: 1, explain: 'GCU 以 JSON Patch 增量修改，先驗證再依相依性套用。' },
   ],
   related: ['redis-db', 'cli-lab', 'reboot'],
   refs: [['SONiC Configuration（官方 Wiki）', 'https://github.com/sonic-net/SONiC/wiki/Configuration'], ['Generic Config Updater 設計', 'https://github.com/sonic-net/SONiC/blob/master/doc/config-generic-update-rollback/Json_Change_Application_Design.md']],

@@ -2,21 +2,20 @@ S.register({
   id: 'reboot',
   category: 'ops',
   order: 4,
-  icon: '🔄',
   title: 'Warm / Fast / Cold Reboot',
   en: 'Reboot Types',
-  summary: '升級或重啟 SONiC 時，流量會中斷多久？Cold reboot 最單純、Fast reboot 把中斷壓到數十秒內、Warm reboot 讓資料平面幾乎不中斷。了解它們背後的機制。',
+  summary: "Cold、fast 與 warm reboot 的機制與資料平面中斷時間比較，以及 warm reboot 如何保存狀態、以 kexec 重啟並在開機後 reconcile。",
+  meta: [["指令", ["reboot", "fast-reboot", "warm-reboot", "soft-reboot"]], ["資料表", ["STATE_DB WARM_RESTART_TABLE / WARM_RESTART_ENABLE_TABLE", "CONFIG_DB WARM_RESTART"]], ["機制", ["kexec", "BGP Graceful Restart", "SAI_SWITCH_ATTR_RESTART_WARM", "Redis dump.rdb"]], ["原始碼", "<code>sonic-utilities/scripts/fast-reboot</code>（warm-reboot 為其連結）"]],
   tags: ['warm reboot', 'fast reboot', 'kexec', 'BGP Graceful Restart', 'reconcile'],
-  features: ['三種 reboot 時間軸比較', 'Warm reboot 流程動畫'],
   html: `
-<h2>時間軸比較</h2>
+<h2>中斷時間比較</h2>
 <p>切換三種模式，比較<b>控制平面</b>（BGP、LACP 等協定）與<b>資料平面</b>（ASIC 轉發）的中斷時間。（數值為示意，實際取決於平台、路由數量與設定。）</p>
 <div id="tl"></div>
 
-<h2>Warm reboot 在做什麼</h2>
+<h2>Warm reboot 流程</h2>
 <div id="d-warm"></div>
 
-<h2>比較表</h2>
+<h2>機制比較</h2>
 <table>
 <thead><tr><th></th><th>Cold reboot</th><th>Fast reboot</th><th>Warm reboot</th></tr></thead>
 <tbody>
@@ -28,7 +27,7 @@ S.register({
 <tr><td>需要鄰居配合</td><td>否</td><td>BGP Graceful Restart</td><td>BGP Graceful Restart、LACP 不逾時</td></tr>
 </tbody></table>
 
-<h2>相關指令</h2>
+<h2>操作指令</h2>
 <pre><span class="c"># 開啟某個服務的 warm restart 與調整 BGP 等待時間</span>
 sudo config warm_restart enable swss
 sudo config warm_restart bgp_timer 120
@@ -58,7 +57,7 @@ show reboot-cause history</pre>
         const seg = S.el('div', { style: `position:absolute;top:0;bottom:0;left:${rng[0] / T * 100}%;width:0;background:${color};border-radius:4px;transition:width .9s ease;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden` }, `中斷 ~${rng[1] - rng[0]} 秒`);
         track.appendChild(seg);
         requestAnimationFrame(() => requestAnimationFrame(() => (seg.style.width = (rng[1] - rng[0]) / T * 100 + '%')));
-      } else track.appendChild(S.el('div', { style: 'position:absolute;inset:0;display:flex;align-items:center;padding-left:10px;font-size:12px;font-weight:700;color:var(--good)' }, '✅ 持續轉發，幾乎不中斷'));
+      } else track.appendChild(S.el('div', { style: 'position:absolute;inset:0;display:flex;align-items:center;padding-left:10px;font-size:12px;font-weight:700;color:var(--good)' }, '持續轉發，幾乎不中斷'));
       wrap.appendChild(track);
       return wrap;
     }
@@ -83,12 +82,12 @@ show reboot-cause history</pre>
         { id: 'save', x: 605, y: 30, w: 170, h: 60, label: '保存 Redis', sub: 'dump.rdb', kind: 'db', info: '<p>把整個 Redis 資料庫存成 RDB 檔，重開機後還原。</p>' },
         { id: 'sd', x: 800, y: 30, w: 180, h: 60, label: 'syncd warm 關閉', sub: 'SAI pre-shutdown', kind: 'proc', info: '<p>syncd 以 <code>SAI_SWITCH_ATTR_RESTART_WARM=true</code> 關閉 switch，廠商 SAI 把必要狀態存到檔案，但<b>不重設 ASIC</b>。</p>' },
         { id: 'kx', x: 800, y: 160, w: 180, h: 60, label: 'kexec', sub: '直接載入新 kernel', kind: 'kernel', info: '<p>跳過 BIOS 與韌體初始化，節省大量時間。</p>' },
-        { id: 'asic', x: 215, y: 160, w: 560, h: 60, label: 'ASIC 持續以舊的轉發表轉發封包 🚀', kind: 'hw', info: '<p>整個軟體重啟期間，ASIC 沒有被重設，舊的 L2/L3 表項仍在，使用者流量不受影響。</p>' },
+        { id: 'asic', x: 215, y: 160, w: 560, h: 60, label: 'ASIC 持續以舊的轉發表轉發封包 ', kind: 'hw', info: '<p>整個軟體重啟期間，ASIC 沒有被重設，舊的 L2/L3 表項仍在，使用者流量不受影響。</p>' },
         { id: 'rs', x: 800, y: 290, w: 180, h: 60, label: '還原 Redis', kind: 'db', info: '<p>database 容器啟動時載入 dump.rdb。</p>' },
         { id: 'ws', x: 605, y: 290, w: 170, h: 60, label: 'syncd warm start', sub: '重新接上硬體', kind: 'proc', info: '<p>SAI 以 warm boot 模式初始化，從保存的狀態重建軟體結構並與硬體對應，<b>不清除</b>硬體表。</p>' },
         { id: 'orc', x: 410, y: 290, w: 170, h: 60, label: 'orchagent reconcile', kind: 'proc', info: '<p>orchagent 從還原的 APPL_DB 重建內部狀態，搭配 syncd 的 view 比對，只把真正有差異的物件寫入硬體。</p>' },
         { id: 'frr', x: 215, y: 290, w: 170, h: 60, label: 'fpmsyncd reconcile', sub: 'bgp_timer 後', kind: 'proc', info: '<p>BGP 重新建立後，fpmsyncd 等待 warm_restart bgp_timer（例如 120 秒）讓路由收斂，再比對新舊路由，只更新有變化的部分，並清除過期路由。</p>' },
-        { id: 'done', x: 20, y: 290, w: 170, h: 60, label: '完成 ✅', sub: 'state=reconciled', kind: 'ext', info: '<p><code>show warm_restart state</code> 各元件顯示 reconciled。</p>' },
+        { id: 'done', x: 20, y: 290, w: 170, h: 60, label: '完成 ', sub: 'state=reconciled', kind: 'ext', info: '<p><code>show warm_restart state</code> 各元件顯示 reconciled。</p>' },
       ],
       edges: [
         { from: 'cmd', to: 'gr', id: 's1' }, { from: 'gr', to: 'frz', id: 's2' }, { from: 'frz', to: 'save', id: 's3' }, { from: 'save', to: 'sd', id: 's4' },
@@ -110,11 +109,6 @@ show reboot-cause history</pre>
     'Fast reboot 用 kexec、保存 ARP/FDB 並依賴 BGP GR，把資料平面中斷壓在數十秒內。',
     'Warm reboot 不重設 ASIC：保存 Redis 與 SAI 狀態，重啟後 reconcile，資料平面幾乎不中斷。',
     'warm reboot 需要鄰居支援 BGP Graceful Restart，且各元件都要實作 reconcile。',
-  ],
-  quiz: [
-    { q: 'Warm reboot 期間，使用者流量為何還能轉發？', options: ['流量改走 CPU', 'ASIC 沒有被重設，舊的轉發表持續運作', '鄰居幫忙轉發', 'Redis 在轉發'], answer: 1, explain: 'ASIC 保持原狀，軟體重啟後再重新接上並比對差異。' },
-    { q: 'Fast / warm reboot 使用什麼來跳過 BIOS 開機？', options: ['GRUB', 'kexec', 'ONIE', 'PXE'], answer: 1, explain: 'kexec 讓執行中的 kernel 直接載入新 kernel。' },
-    { q: '要讓 BGP 鄰居在重啟期間不撤路由，需要？', options: ['BFD', 'BGP Graceful Restart', 'LACP fallback', 'ECMP'], answer: 1, explain: 'Graceful Restart 讓鄰居在 restart time 內保留舊路由。' },
   ],
   related: ['build', 'syncd-sai', 'routing', 'containers'],
   refs: [['Warm Reboot 設計文件', 'https://github.com/sonic-net/SONiC/blob/master/doc/warm-reboot/SONiC_Warmboot.md'], ['Fast Reboot 設計文件', 'https://github.com/sonic-net/SONiC/blob/master/doc/fast-reboot/fastreboot.pdf']],

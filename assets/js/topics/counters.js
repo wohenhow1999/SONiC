@@ -2,21 +2,20 @@ S.register({
   id: 'counters',
   category: 'ops',
   order: 3,
-  icon: '📈',
   title: '計數器與遙測',
   en: 'Counters & Telemetry',
-  summary: 'SONiC 用 Flex Counter 機制讓 syncd 定期從 ASIC 讀回統計，存進 COUNTERS_DB；show 指令、SNMP、gNMI 串流遙測都從這裡取資料。',
+  summary: "Flex Counter 機制讓 syncd 依設定週期性從 ASIC 讀取統計值並寫入 COUNTERS_DB；CLI、SNMP 與 gNMI 皆由此取得計數器資料。",
+  meta: [["程序", ["orchagent (FlexCounterOrch)", "syncd (FlexCounter)", "snmp-subagent", "gnmi"]], ["資料表", ["CONFIG_DB FLEX_COUNTER_TABLE", "FLEX_COUNTER_DB", "COUNTERS_DB COUNTERS / RATES / *_NAME_MAP"]], ["工具", ["counterpoll show", "show interfaces counters", "portstat", "sonic-clear counters"]]],
   tags: ['Flex Counter', 'COUNTERS_DB', 'counterpoll', 'portstat', 'SNMP', 'gNMI', 'Telemetry'],
-  features: ['Flex Counter 流程動畫', '即時計數器模擬'],
   html: `
 <h2>Flex Counter 架構</h2>
 <div id="d-cnt"></div>
 
-<h2>互動：即時介面計數器</h2>
+<h2>介面計數器模擬</h2>
 <p>調整各 port 的流量負載、注入錯誤，或執行 <code>sonic-clear counters</code>。注意右邊 COUNTERS_DB 裡的原始值——清除計數器其實<b>並不會</b>把 ASIC 或 DB 歸零！</p>
 <div id="live"></div>
 
-<h2>取得資料的各種方式</h2>
+<h2>資料取得方式</h2>
 <table>
 <thead><tr><th>方式</th><th>範例</th><th>資料來源</th></tr></thead>
 <tbody>
@@ -29,7 +28,7 @@ S.register({
 `,
   mount(root) {
     S.diagram(root.querySelector('#d-cnt'), {
-      title: 'Flex Counter：誰決定要讀什麼、誰去讀、讀完放哪',
+      title: 'Flex Counter 的設定與輪詢路徑',
       w: 1000, h: 420,
       nodes: [
         { id: 'cli', x: 20, y: 40, w: 170, h: 56, label: 'counterpoll CLI', kind: 'cli', info: '<p><code>counterpoll port enable</code>、<code>counterpoll queue interval 10000</code>…設定哪些計數器群組要開、多久讀一次。</p>' },
@@ -83,9 +82,9 @@ S.register({
       });
       ctrl.appendChild(r);
       ctrl.appendChild(S.el('div', { class: 'row', style: 'margin-top:8px' },
-        S.el('button', { class: 'btn sm', onclick: e => { running = !running; e.currentTarget.textContent = running ? '⏸ 暫停' : '▶ 繼續'; } }, '⏸ 暫停'),
-        S.el('button', { class: 'btn sm', onclick: () => { PORTS[2].rxErr += 137; } }, '💥 Ethernet8 注入 137 個 CRC 錯誤'),
-        S.el('button', { class: 'btn sm primary', onclick: () => { snap = PORTS.map(p => ({ rxOk: p.rxOk, txOk: p.txOk, rxErr: p.rxErr })); draw(); } }, '🧹 sonic-clear counters'),
+        S.el('button', { class: 'btn sm', onclick: e => { running = !running; e.currentTarget.textContent = running ? '暫停' : '繼續'; } }, '暫停'),
+        S.el('button', { class: 'btn sm', onclick: () => { PORTS[2].rxErr += 137; } }, 'Ethernet8 注入 137 個 CRC 錯誤'),
+        S.el('button', { class: 'btn sm primary', onclick: () => { snap = PORTS.map(p => ({ rxOk: p.rxOk, txOk: p.txOk, rxErr: p.rxErr })); draw(); } }, 'sonic-clear counters'),
         S.el('button', { class: 'btn sm', onclick: () => { snap = null; draw(); } }, '↺ 取消 clear')));
     }
     function draw() {
@@ -105,7 +104,7 @@ S.register({
   'SAI_PORT_STAT_IF_OUT_UCAST_PKTS': '${Math.round(e8.txOk)}',
   'SAI_PORT_STAT_IF_OUT_OCTETS': '${Math.round(e8.txB)}',
   ...
-}</pre><div class="muted" style="font-size:13px">💡 <code>sonic-clear counters</code> 只是把目前數值存成快照（在 <code>/tmp</code> 下的 portstat 快取），之後 show 顯示「目前值 − 快照」。COUNTERS_DB 與 ASIC 的值持續累加，SNMP 與 gNMI 也不受影響。</div></div>`;
+}</pre><div class="muted" style="font-size:13px"><code>sonic-clear counters</code> 只是把目前數值存成快照（在 <code>/tmp</code> 下的 portstat 快取），之後 show 顯示「目前值 − 快照」。COUNTERS_DB 與 ASIC 的值持續累加，SNMP 與 gNMI 也不受影響。</div></div>`;
     }
     function tick() {
       if (!running) return;
@@ -127,10 +126,6 @@ S.register({
     'syncd 的 FlexCounter 執行緒呼叫 SAI get_*_stats，把結果寫進 COUNTERS_DB。',
     'COUNTERS_PORT_NAME_MAP 把 port 名稱對應到 OID，查 COUNTERS_DB 時先查它。',
     'sonic-clear counters 只存本機快照，不會歸零 COUNTERS_DB 或硬體計數器。',
-  ],
-  quiz: [
-    { q: '誰實際從 ASIC 讀取計數器？', options: ['orchagent', 'syncd 的 FlexCounter 執行緒', 'snmpd', 'portstat'], answer: 1, explain: 'syncd 依 FLEX_COUNTER_DB 的設定週期性呼叫 SAI 讀取。' },
-    { q: '執行 sonic-clear counters 後，SNMP 看到的 ifInOctets 會？', options: ['歸零', '不受影響，持續累加', '變成負數', '停止更新'], answer: 1, explain: 'clear 只影響 show 指令的顯示基準。' },
   ],
   related: ['redis-db', 'syncd-sai', 'pmon'],
   refs: [['SONiC gNMI / Telemetry', 'https://github.com/sonic-net/sonic-gnmi']],

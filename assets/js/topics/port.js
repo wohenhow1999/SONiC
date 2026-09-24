@@ -2,18 +2,17 @@ S.register({
   id: 'port',
   category: 'net',
   order: 1,
-  icon: '🔌',
   title: 'Port 與介面初始化',
   en: 'Port Initialization',
-  summary: '從 hwsku 的 port 定義檔，到 CONFIG_DB、SAI port、Linux netdev、鏈路 up——一個前面板埠是如何「誕生」並開始運作的。',
+  summary: "前面板 port 從 hwsku 定義檔開始，經 CONFIG_DB、SAI port 與 hostif 建立 Linux netdev，最後由鏈路狀態通知決定 oper 狀態。本章說明完整的初始化順序與相關欄位。",
+  meta: [["程序", ["portmgrd", "portsyncd", "orchagent (PortsOrch)", "xcvrd"]], ["資料表", ["CONFIG_DB PORT", "APPL_DB PORT_TABLE", "STATE_DB PORT_TABLE", "ASIC_DB SAI_OBJECT_TYPE_PORT / HOSTIF"]], ["平台檔案", ["port_config.ini", "platform.json", "hwsku.json"]], ["原始碼", "<code>sonic-swss/orchagent/portsorch.cpp</code>、<code>sonic-swss/cfgmgr/portmgr.cpp</code>"]],
   tags: ['Port', 'portsyncd', 'portmgrd', 'PortsOrch', 'hostif', 'oper_status', 'breakout'],
-  features: ['開機初始化動畫', '虛擬交換機終端機'],
   html: `
-<h2>一個 Port 的誕生</h2>
+<h2>初始化流程</h2>
 <p>開機時，SONiC 必須先讓 <b>ASIC 裡的 port</b> 與 <b>Linux 裡的 netdev</b>（例如 <code>Ethernet0</code>）一一對應起來，其他功能（VLAN、IP、LAG）才有辦法建立在上面。</p>
 <div id="d-port"></div>
 
-<h2>Port 的關鍵屬性</h2>
+<h2>PORT 表欄位</h2>
 <table>
 <thead><tr><th>欄位</th><th>範例</th><th>說明</th></tr></thead>
 <tbody>
@@ -25,13 +24,13 @@ S.register({
 <tr><td><code>oper_status</code></td><td>up / down</td><td>實際鏈路狀態，由 ASIC 回報，只出現在 APPL_DB / STATE_DB</td></tr>
 <tr><td><code>fec</code></td><td>rs / fc / none</td><td>前向錯誤修正，兩端必須一致</td></tr>
 </tbody></table>
-<div class="callout"><div class="ct">🧩 Port 名稱與 lane 的由來</div>
+<div class="callout"><div class="ct">Port 命名與 lane</div>
 <p>每個 hwsku 目錄（<code>/usr/share/sonic/device/&lt;platform&gt;/&lt;hwsku&gt;/</code>）下有 <code>port_config.ini</code>，或是較新的 <code>platform.json</code> + <code>hwsku.json</code>，定義了每個 port 的名稱、lane、alias、速率。<code>Ethernet</code> 後面的數字通常是「第一條 lane 的索引」，所以 4-lane 埠會是 Ethernet0、Ethernet4、Ethernet8…</p></div>
-<div class="callout tip"><div class="ct">✂️ Dynamic Port Breakout</div>
+<div class="callout tip"><div class="ct">Dynamic Port Breakout</div>
 <p>一個 400G 埠可以拆成 4×100G：<code>sudo config interface breakout Ethernet0 4x100G</code>。SONiC 會刪除原 port、建立 Ethernet0/2/4/6 等新 port，並一併處理相依的設定。</p></div>
 
-<h2>動手玩：admin 與 oper 狀態</h2>
-<p>這台虛擬交換機的 <b>Ethernet0、4、8、12 有接線</b>，其他埠沒有。試著把 Ethernet8 和 Ethernet16 都 startup，比較它們 oper 狀態的差異，並觀察右邊 APPL_DB / STATE_DB / ASIC_DB 的變化。</p>
+<h2>操作示範：admin 與 oper 狀態</h2>
+<p>這台虛擬交換機的 <b>Ethernet0、4、8、12 有接線</b>，其他埠沒有。將 Ethernet8 與 Ethernet16 都 startup，比較它們 oper 狀態的差異，並觀察右邊 APPL_DB / STATE_DB / ASIC_DB 的變化。</p>
 <div id="term"></div>
 `,
   mount(root) {
@@ -73,7 +72,7 @@ S.register({
         { title: '驅動建立 Linux netdev', text: 'SAI 的 <code>create_hostif</code> 讓廠商驅動在 kernel 建出 <code>Ethernet0</code> 介面。', nodes: ['syncd', 'kern'], edges: ['e8'] },
         { title: 'portsyncd 回報就緒', text: 'portsyncd 從 netlink 看到新介面，寫 <code>STATE_DB PORT_TABLE|Ethernet0 state=ok</code>；全部 port 建好後寫 <code>PortInitDone</code>。', nodes: ['kern', 'ps', 'state'], edges: ['e9', 'e10'] },
         { title: 'portmgrd 套用 MTU / admin', text: 'portmgrd 看到 state=ok，才對 kernel 介面設定 MTU 與 admin up，並把 admin_status 寫入 APPL_DB → PortsOrch 設定 SAI admin state。', nodes: ['state', 'pm', 'kern'], edges: ['e11', 'e12'] },
-        { title: '鏈路 up！', text: 'PHY 與對端協商成功，SAI 回報 <code>port_state_change</code>。PortsOrch 把 oper_status=up 寫回 APPL_DB / STATE_DB，並把 hostif 的 oper 狀態設為 up，Linux 的 Ethernet0 carrier 也跟著 up。', nodes: ['asic', 'orch', 'appl'], edges: ['e13', 'e5'] },
+        { title: '鏈路 up', text: 'PHY 與對端協商成功，SAI 回報 <code>port_state_change</code>。PortsOrch 把 oper_status=up 寫回 APPL_DB / STATE_DB，並把 hostif 的 oper 狀態設為 up，Linux 的 Ethernet0 carrier 也跟著 up。', nodes: ['asic', 'orch', 'appl'], edges: ['e13', 'e5'] },
       ],
     });
     S.terminal(root.querySelector('#term'), {
@@ -96,11 +95,6 @@ S.register({
     'PortsOrch 依 lanes 設定 SAI port，並建立 hostif，讓 Linux 出現 Ethernet0 等 netdev。',
     '*mgrd 會等 STATE_DB 顯示 state=ok（netdev 就緒）後，才對 kernel 介面下設定。',
     'admin_status 是「想要」的狀態；oper_status 是 ASIC 回報的「實際」鏈路狀態。',
-  ],
-  quiz: [
-    { q: 'admin up 但 oper down，最可能的原因是？', options: ['CONFIG_DB 沒寫入', '沒有接線、對端關閉或速率/FEC 不一致', 'orchagent 當機', 'Redis 滿了'], answer: 1, explain: 'oper 狀態由實際鏈路決定；接線、對端狀態、速率與 FEC 都會影響。' },
-    { q: 'Linux 中的 Ethernet0 介面是怎麼產生的？', options: ['/etc/network/interfaces 設定', 'PortsOrch 透過 SAI 建立 hostif，由廠商驅動產生 netdev', 'portsyncd 用 ip link add 建立', 'teamd 建立'], answer: 1, explain: 'SAI_HOSTIF_TYPE_NETDEV 讓驅動在 kernel 建出對應的網路介面。' },
-    { q: 'STATE_DB PORT_TABLE|Ethernet0 的 state=ok 代表什麼？', options: ['鏈路已 up', 'netdev 已在 kernel 中建立完成', '光模組已插入', 'port 已加入 VLAN'], answer: 1, explain: 'state=ok 由 portsyncd 在看到 netdev 建立後寫入。' },
   ],
   related: ['vlan', 'lag', 'pmon', 'swss'],
   refs: [['Port 相關設計文件（SONiC Wiki）', 'https://github.com/sonic-net/SONiC/tree/master/doc'], ['Dynamic Port Breakout 設計', 'https://github.com/sonic-net/SONiC/blob/master/doc/dynamic-port-breakout/sonic-dynamic-port-breakout-HLD.md']],

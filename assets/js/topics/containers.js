@@ -19,24 +19,23 @@
     id: 'containers',
     category: 'intro',
     order: 3,
-    icon: '📦',
     title: 'Docker 容器一覽',
     en: 'Containers & Services',
-    summary: 'SONiC 把每個功能放在獨立容器，由 host 上的 systemd 啟動與管理。認識每個容器裡跑了哪些程序、容器間的相依與重啟關係。',
+    summary: "每個功能以獨立容器封裝，由 host 上的 systemd 依相依順序啟動，容器內再由 supervisord 管理程序。本章整理各容器的內容、相依與重啟影響。",
+    meta: [["管理者", ["systemd (sonic.target)", "supervisord"]], ["服務腳本", ["/usr/local/bin/<service>.sh", "/lib/systemd/system/<service>.service"]], ["相關指令", ["docker ps", "systemctl status <service>", "docker exec <ctr> supervisorctl status"]], ["原始碼", "<code>sonic-buildimage/dockers/</code>、<code>files/build_templates/</code>"]],
     tags: ['Docker', 'systemd', 'supervisord', '容器'],
-    features: ['容器相依圖', '可篩選的容器目錄'],
     html: `
-<h2>容器與 systemd 的關係</h2>
+<h2>systemd 與容器啟動順序</h2>
 <p>SONiC 開機後，host 上的 <b>systemd</b> 依相依順序啟動每個容器（<code>database.service</code>、<code>swss.service</code>、<code>syncd.service</code>…）。容器內部再由 <b>supervisord</b> 管理多個程序。點選下圖節點看說明。</p>
 <div id="d-ctr"></div>
-<div class="callout warn"><div class="ct">🔁 重啟 swss 的連鎖效應</div>
+<div class="callout warn"><div class="ct">重啟 swss 的影響範圍</div>
 <p><code>sudo systemctl restart swss</code> 不只會重啟 swss：它的「同伴」<b>syncd</b> 會一起重啟（ASIC 需要重新初始化），相依的 <b>teamd、bgp、radv</b> 等也會被帶著重啟，所以會中斷流量。實際清單寫在 <code>/usr/local/bin/swss.sh</code> 的 PEER / DEPENDENT 變數中，各版本略有不同。</p></div>
 
 <h2>容器目錄</h2>
 <p>用分類篩選，點選卡片查看容器內的程序。</p>
 <div id="ctr-list"></div>
 
-<h2>常用指令</h2>
+<h2>操作指令</h2>
 <pre><span class="c"># 看所有容器</span>
 docker ps
 <span class="c"># 進入 swss 容器</span>
@@ -100,11 +99,6 @@ docker stats --no-stream</pre>
       'database 最先啟動；swss 與 syncd 是同伴，會一起重啟。',
       '重啟 swss / syncd 會中斷流量；重啟 lldp、snmp、pmon 通常不影響轉發。',
       'syncd 容器的映像依晶片廠商不同（例如 docker-syncd-brcm、docker-syncd-mlnx、docker-syncd-vs）。',
-    ],
-    quiz: [
-      { q: '在 SONiC 中哪個容器必須最先啟動？', options: ['swss', 'database', 'syncd', 'bgp'], answer: 1, explain: '所有元件都需要 Redis，所以 database 最先啟動。' },
-      { q: '下列哪個容器單獨重啟通常「不會」中斷資料平面流量？', options: ['syncd', 'swss', 'lldp', '以上皆會'], answer: 2, explain: 'lldp 只負責鄰居發現，重啟不影響 ASIC 轉發表。' },
-      { q: 'FRR 的 bgpd、zebra 跑在哪個容器？', options: ['swss', 'bgp', 'teamd', 'database'], answer: 1, explain: 'bgp 容器（映像名稱 docker-fpm-frr）內含 FRR 與 fpmsyncd。' },
     ],
     related: ['architecture', 'swss', 'syncd-sai', 'reboot'],
   });

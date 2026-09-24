@@ -652,7 +652,7 @@
         const fn = op === 'add' ? `create_${api[1]}` : op === 'del' ? `remove_${api[1]}` : `set_${api[1]}_attribute`;
         add('syncd', 'proc', `呼叫 <code>sai_${api[0]}_api-&gt;${fn}()</code>${ks.length > 1 ? ' × ' + ks.length : ''}，由廠商 SAI 轉成 SDK 呼叫`);
       }));
-      add('ASIC', 'hw', '硬體轉發表更新完成，封包開始依新設定轉發 ✅');
+      add('ASIC', 'hw', '硬體表項寫入完成，資料平面依新設定轉發');
     }
     res.notes.filter(n => n.who === 'systemd').forEach(n => add(n.who, n.k, n.t));
     return tr;
@@ -732,21 +732,21 @@ c4d3e2f1a6b5   docker-database:latest            "/usr/local/bin/dock…"   Up 1
     const root = S.el('div');
     const chips = S.el('div', { class: 'chips' });
     (opts.chips || []).forEach(c => chips.appendChild(S.el('button', { class: 'chip', title: '點一下執行', onclick: () => run(c) }, c)));
-    if (opts.chips && opts.chips.length) root.appendChild(S.el('div', { class: 'muted', style: 'font-size:13px' }, '👇 點下面的指令自動執行，也可以在終端機自己輸入（↑↓ 可叫出歷史指令）'));
+    if (opts.chips && opts.chips.length) root.appendChild(S.el('div', { class: 'sim-hint' }, '點選指令即可執行，也可以直接在終端機輸入；↑ ↓ 叫出歷史指令。'));
     root.appendChild(chips);
 
     const wrap = S.el('div', { class: 'sim' });
     const term = S.el('div', { class: 'term' });
     const out = S.el('div', { class: 'term-out' });
     const input = S.el('input', { type: 'text', spellcheck: 'false', autocomplete: 'off', 'aria-label': 'SONiC 指令輸入', placeholder: '輸入 help 查看指令' });
-    term.appendChild(S.el('div', { class: 'term-bar' }, S.el('i', { style: 'background:#ff5f57' }), S.el('i', { style: 'background:#febc2e' }), S.el('i', { style: 'background:#28c840' }), S.el('span', { class: 't' }, 'admin@sonic: ~ (虛擬交換機)')));
+    term.appendChild(S.el('div', { class: 'term-bar' }, S.el('span', { class: 't' }, 'admin@sonic — Force10-S6000 · SONiC.202405 (模擬)'), S.el('span', null, 'bash')));
     term.appendChild(out);
     term.appendChild(S.el('div', { class: 'term-in' }, S.el('span', { class: 'p' }, 'admin@sonic:~$'), input));
     wrap.appendChild(term);
 
     const side = S.el('div', { class: 'sim-side' });
-    const trace = S.el('div', { class: 'trace' }, S.el('h5', null, '🔍 背後發生了什麼'), S.el('ol', null), S.el('div', { class: 'empty' }, '執行指令後，這裡會列出每個元件依序做的事。'));
-    const dbv = S.el('div', { class: 'dbview' });
+    const trace = S.el('div', { class: 'panel trace' }, S.el('h5', null, '執行追蹤', S.el('span', null, '各元件依序的動作')), S.el('ol', null), S.el('div', { class: 'empty' }, '執行指令後，這裡會列出每個元件依序做的事。'));
+    const dbv = S.el('div', { class: 'panel dbview' });
     side.appendChild(trace); side.appendChild(dbv);
     wrap.appendChild(side);
     root.appendChild(wrap);
@@ -758,12 +758,12 @@ c4d3e2f1a6b5   docker-database:latest            "/usr/local/bin/dock…"   Up 1
     const hist = []; let hi = 0;
 
     function print(text, cls) { const s = S.el('span', { class: cls || null }, text + '\n'); out.appendChild(s); out.scrollTop = out.scrollHeight; }
-    print(opts.welcome || 'Welcome to SONiC 百科 虛擬交換機！輸入 help 查看支援的指令。', 'dim');
+    print(opts.welcome || 'SONiC 模擬環境。輸入 help 查看支援的指令。', 'dim');
 
     function renderDb() {
       const d = sim.dump();
       dbv.innerHTML = '';
-      dbv.appendChild(S.el('h5', null, '🗄️ Redis 資料庫即時內容', S.el('span', { class: 'muted', style: 'font-weight:400;font-size:12px' }, '（綠=新增 黃=修改 紅=刪除）')));
+      dbv.appendChild(S.el('h5', null, 'Redis 內容', S.el('span', null, '綠：新增　黃：修改　紅：刪除')));
       const tabs = S.el('div', { class: 'dbtabs' });
       ['CONFIG_DB', 'APPL_DB', 'STATE_DB', 'ASIC_DB'].forEach(db => {
         const changed = lastDiff && Object.keys(lastDiff[db]).length;

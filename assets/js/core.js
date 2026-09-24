@@ -3,12 +3,13 @@ window.S = (function () {
   const topics = [];
 
   const categories = [
-    { id: 'intro', name: '入門', icon: '🚀' },
-    { id: 'core', name: '核心元件', icon: '⚙️' },
-    { id: 'net', name: '網路功能', icon: '🔀' },
-    { id: 'ops', name: '平台與維運', icon: '🛠️' },
-    { id: 'lab', name: '實驗室', icon: '🧪' },
-    { id: 'ref', name: '參考', icon: '📚' },
+    { id: 'intro', name: '基礎概念', en: 'Foundations' },
+    { id: 'core', name: '核心架構', en: 'Core Architecture' },
+    { id: 'net', name: 'L2 / L3 功能', en: 'Switching & Routing' },
+    { id: 'adv', name: '進階功能', en: 'Advanced Features' },
+    { id: 'ops', name: '平台與維運', en: 'Platform & Operations' },
+    { id: 'lab', name: '實作', en: 'Hands-on' },
+    { id: 'ref', name: '附錄', en: 'Reference', appendix: true },
   ];
 
   function register(t) {
@@ -18,6 +19,14 @@ window.S = (function () {
   function sortedTopics() {
     const catIdx = Object.fromEntries(categories.map((c, i) => [c.id, i]));
     return topics.slice().sort((a, b) => (catIdx[a.category] - catIdx[b.category]) || (a.order - b.order));
+  }
+
+  /* 章節編號：一般分類為「分類序.章序」，附錄為 A、B、C… */
+  function num(t) {
+    const all = sortedTopics().filter(x => x.category === t.category);
+    const ci = categories.findIndex(c => c.id === t.category);
+    const i = all.indexOf(t);
+    return categories[ci].appendix ? String.fromCharCode(65 + i) : `${ci + 1}.${i + 1}`;
   }
 
   function byId(id) {
@@ -56,5 +65,5 @@ window.S = (function () {
     },
   };
 
-  return { topics, categories, register, sortedTopics, byId, esc, el, store };
+  return { topics, categories, register, sortedTopics, byId, num, esc, el, store };
 })();

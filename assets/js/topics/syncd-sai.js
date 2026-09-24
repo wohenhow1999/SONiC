@@ -2,37 +2,36 @@ S.register({
   id: 'syncd-sai',
   category: 'core',
   order: 3,
-  icon: '🔌',
   title: 'syncd 與 SAI',
   en: 'syncd & Switch Abstraction Interface',
-  summary: 'SAI 是一組標準 C API，讓 SONiC 用同一套程式碼控制不同廠牌的交換晶片。orchagent 透過 sairedis 把 SAI 呼叫「序列化」到 ASIC_DB，syncd 再把它們「重播」到真正的廠商 SAI 上。',
+  summary: "SAI 是交換晶片的標準 C API。orchagent 經 sairedis 將 SAI 呼叫序列化至 ASIC_DB，syncd 再將其轉換為對廠商 libsai 的實際呼叫，並負責 VID/RID 對映與晶片事件回報。",
+  meta: [["容器", ["syncd"]], ["程序", ["syncd"]], ["函式庫", ["libsairedis", "libsaimeta", "libsai (vendor)"]], ["資料庫", ["ASIC_DB (ASIC_STATE, VIDTORID, RIDTOVID)", "FLEX_COUNTER_DB", "COUNTERS_DB"]], ["原始碼", "<code>sonic-sairedis/syncd/</code>、<code>sonic-sairedis/lib/</code>、<code>opencomputeproject/SAI</code>"]],
   tags: ['SAI', 'syncd', 'sairedis', 'VID', 'RID', 'ASIC'],
-  features: ['SAI 呼叫路徑動畫', 'sairedis.rec 解讀器', 'SAI 程式碼範例'],
   html: `
-<h2>為什麼需要 SAI？</h2>
+<h2>SAI 概述</h2>
 <p>每家晶片廠都有自己的 SDK，API 完全不同。<b>SAI（Switch Abstraction Interface）</b>在 2015 年由 OCP 社群制定，定義了一套標準的物件模型（Port、VLAN、Route、Next Hop、ACL…）與 C API。晶片廠只要提供 SAI 實作（<code>libsai.so</code>），上層的 SONiC 就不需要知道底下是哪家晶片。</p>
-<div class="grid c3">
-  <div class="card"><b>📐 物件模型</b><p class="muted" style="margin:6px 0 0">每個東西都是 <code>sai_object_type_t</code>，用 <code>sai_object_id_t</code>（OID）識別，並有一組屬性（attribute）。</p></div>
-  <div class="card"><b>🧩 API 分組</b><p class="muted" style="margin:6px 0 0"><code>sai_port_api</code>、<code>sai_vlan_api</code>、<code>sai_route_api</code>…每組都有 create / remove / set / get。</p></div>
-  <div class="card"><b>📣 通知回呼</b><p class="muted" style="margin:6px 0 0">晶片事件用 callback 回報，例如 <code>port_state_change</code>、<code>fdb_event</code>。</p></div>
+<div class="defs">
+  <div><b>物件模型</b><p>每個東西都是 <code>sai_object_type_t</code>，用 <code>sai_object_id_t</code>（OID）識別，並有一組屬性（attribute）。</p></div>
+  <div><b>API 分組</b><p><code>sai_port_api</code>、<code>sai_vlan_api</code>、<code>sai_route_api</code>…每組都有 create / remove / set / get。</p></div>
+  <div><b>通知回呼</b><p>晶片事件用 callback 回報，例如 <code>port_state_change</code>、<code>fdb_event</code>。</p></div>
 </div>
 
-<h2>SAI 呼叫的旅程</h2>
+<h2>SAI 呼叫路徑</h2>
 <p>orchagent 呼叫的其實是 <b>sairedis</b>（一個「假的」SAI 實作），它不碰硬體，只把呼叫寫進 Redis；真正的 SAI 在 syncd 裡。</p>
 <div id="d-sai"></div>
 
 <h2>VID 與 RID</h2>
 <p>orchagent 建立物件時，sairedis 會立刻給一個<b>虛擬 OID（VID）</b>，不用等硬體回應，所以 orchagent 可以非同步、快速地一直往下做。syncd 真正建立物件後拿到<b>真實 OID（RID）</b>，並把對應關係記在 ASIC_DB 的 <code>VIDTORID</code> / <code>RIDTOVID</code> 表中。</p>
-<div class="callout tip"><div class="ct">💡 為什麼要這樣設計？</div><p>1. orchagent 不必等硬體，效率高；2. syncd 重啟或 warm reboot 後，RID 可能改變，但 VID 不變，上層不需重建；3. 可以在不同平台上「重播」同一份操作記錄除錯。</p></div>
+<div class="callout tip"><div class="ct">設計考量</div><p>1. orchagent 不必等硬體，效率高；2. syncd 重啟或 warm reboot 後，RID 可能改變，但 VID 不變，上層不需重建；3. 可以在不同平台上「重播」同一份操作記錄除錯。</p></div>
 
-<h2>互動：解讀 sairedis.rec</h2>
+<h2>sairedis.rec 記錄格式</h2>
 <p>sairedis 會把每一個 SAI 操作記錄在 <code>/var/log/swss/sairedis.rec</code>。點選任一行看它的意思。</p>
 <div id="rec"></div>
 
-<h2>SAI 程式碼長什麼樣？</h2>
+<h2>SAI API 範例</h2>
 <div id="code"></div>
 
-<h2>各種 SAI 實作</h2>
+<h2>SAI 實作與 syncd 映像</h2>
 <table><thead><tr><th>平台</th><th>syncd 映像</th><th>說明</th></tr></thead><tbody>
 <tr><td>Broadcom</td><td><code>docker-syncd-brcm</code></td><td>Tomahawk / Trident 系列，SAI 由 Broadcom 以 binary 提供</td></tr>
 <tr><td>NVIDIA (Mellanox)</td><td><code>docker-syncd-mlnx</code></td><td>Spectrum 系列</td></tr>
@@ -100,7 +99,7 @@ S.register({
     const box = S.el('div', { class: 'w-box' });
     const pre = S.el('div', { class: 'term-out', style: 'background:var(--code-bg);border-radius:8px;max-height:none;cursor:pointer' });
     const exp = S.el('div', { class: 'dg-desc', style: 'margin-top:10px' });
-    exp.innerHTML = '<span class="muted">👆 點選上面任一行。</span>';
+    exp.innerHTML = '<span class="muted">點選上面任一行。</span>';
     LINES.forEach(([l, op, e]) => {
       const parts = l.split('|');
       const row = S.el('div', { style: 'padding:3px 4px;border-radius:4px' });
@@ -158,11 +157,6 @@ attr.value.ptr = (<span class="k">void</span> *)on_port_state_change;</pre>` },
     'syncd 是唯一呼叫真正 SAI 的程序，負責 VID↔RID 轉換，並把晶片事件經 NOTIFICATIONS 回報。',
     '/var/log/swss/sairedis.rec 用 c/r/s/g/G/n 等代碼記錄每一個 SAI 操作。',
     'saivs 是軟體模擬的 SAI，讓 SONiC 能在虛擬機上跑完整測試。',
-  ],
-  quiz: [
-    { q: 'orchagent 呼叫 <code>create_vlan()</code> 時，實際上是哪個函式庫處理的？', options: ['廠商 libsai.so', 'libsairedis', 'libteam', 'FRR'], answer: 1, explain: 'orchagent 連結的是 sairedis，它把呼叫寫進 ASIC_DB，由 syncd 轉給真正的 SAI。' },
-    { q: 'sairedis.rec 中操作代碼 <code>s</code> 代表？', options: ['create', 'set', 'shutdown', 'sync'], answer: 1, explain: 'c=create、r=remove、s=set、g=get、G=get 回應、n=通知。' },
-    { q: '為什麼 SONiC 要使用 VID 而不是直接用晶片的 RID？', options: ['VID 比較短', '讓 orchagent 不必等硬體，並在 syncd 重啟 / warm reboot 後保持 ID 不變', 'SAI 規定一定要用 VID', 'Redis 不能存 RID'], answer: 1, explain: 'VID 由 sairedis 立即分配，與實際硬體 ID 解耦。' },
   ],
   related: ['swss', 'redis-db', 'reboot', 'architecture'],
   refs: [['SAI 規格', 'https://github.com/opencomputeproject/SAI'], ['sonic-sairedis 原始碼', 'https://github.com/sonic-net/sonic-sairedis']],

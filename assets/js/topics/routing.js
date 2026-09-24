@@ -2,14 +2,13 @@ S.register({
   id: 'routing',
   category: 'net',
   order: 2,
-  icon: '🧭',
   title: '路由與 BGP（FRR）',
   en: 'Routing, BGP & FRR',
-  summary: 'SONiC 使用 FRRouting 跑 BGP 等路由協定。看路由如何從 bgpd → zebra → fpmsyncd → APPL_DB → RouteOrch → ASIC，以及 ECMP 如何把流量分散到多個 next hop。',
+  summary: "SONiC 以 FRRouting 執行 BGP 等路由協定。路由經 bgpd → zebra → fpmsyncd 進入 APPL_DB，再由 RouteOrch 下發為 SAI ROUTE_ENTRY；多路徑以 NEXT_HOP_GROUP 實作 ECMP。",
+  meta: [["容器", ["bgp"]], ["程序", ["bgpd", "zebra", "staticd", "bfdd", "bgpcfgd", "fpmsyncd", "orchagent (RouteOrch)"]], ["資料表", ["CONFIG_DB BGP_NEIGHBOR / STATIC_ROUTE", "APPL_DB ROUTE_TABLE", "ASIC_DB ROUTE_ENTRY / NEXT_HOP_GROUP"]], ["工具", ["vtysh", "route_check.py", "show ip bgp summary"]], ["原始碼", "<code>sonic-swss/fpmsyncd/</code>、<code>sonic-swss/orchagent/routeorch.cpp</code>、<code>sonic-bgpcfgd</code>"]],
   tags: ['BGP', 'FRR', 'zebra', 'fpmsyncd', 'RouteOrch', 'ECMP', 'bgpcfgd', '靜態路由'],
-  features: ['路由下發動畫', 'ECMP 雜湊模擬', '虛擬交換機終端機'],
   html: `
-<h2>路由的完整旅程</h2>
+<h2>路由下發流程</h2>
 <p>在典型的資料中心 Clos 網路中，SONiC 交換機之間全部用 eBGP 交換路由。下圖把 BGP 設定、路由學習與硬體下發三條路徑畫在一起。</p>
 <div id="d-rt"></div>
 
@@ -23,18 +22,18 @@ S.register({
 <tr><td>fpmsyncd</td><td>SONiC</td><td>接收 FPM 訊息，寫入 APPL_DB <code>ROUTE_TABLE</code></td></tr>
 <tr><td>bgpmon</td><td>SONiC</td><td>把 BGP 鄰居狀態寫入 STATE_DB（<code>NEIGH_STATE_TABLE</code>），供 SNMP / 監控使用</td></tr>
 </tbody></table>
-<div class="callout"><div class="ct">🔧 FRR 設定模式</div>
+<div class="callout"><div class="ct">FRR 設定模式</div>
 <p>SONiC 預設由 bgpcfgd 依 CONFIG_DB 產生 FRR 設定（「split」或「unified」設定檔模式）。也可以把 <code>DEVICE_METADATA|localhost</code> 的 <code>docker_routing_config_mode</code> 設成 <code>split-unified</code> 或 <code>unified</code>，直接用 <code>vtysh</code> 管理 FRR 設定。</p></div>
 
 <h2>ECMP：多路徑負載分擔</h2>
 <p>當同一個網段有多個等價 next hop，RouteOrch 會建立 <b>NEXT_HOP_GROUP</b>，ASIC 依封包 5-tuple 的雜湊值挑一條路。下面模擬 12 條 flow 分配到 4 個 next hop 的情況，試著讓某條鏈路斷掉，看看有多少 flow 被迫換路徑。</p>
 <div id="ecmp"></div>
 
-<h2>動手玩：靜態路由</h2>
-<p>Ethernet0 已設定 <code>10.0.0.0/31</code>，對端 <code>10.0.0.1</code> 已回應 ARP。試著新增一條可達與一條不可達的靜態路由，觀察 zebra、fpmsyncd、orchagent 的不同反應。</p>
+<h2>操作示範：靜態路由</h2>
+<p>Ethernet0 已設定 <code>10.0.0.0/31</code>，對端 <code>10.0.0.1</code> 已回應 ARP。以下示範新增一條可達與一條不可達的靜態路由，觀察 zebra、fpmsyncd、orchagent 的不同反應。</p>
 <div id="term"></div>
 
-<h2>常用除錯指令</h2>
+<h2>除錯指令</h2>
 <pre><span class="c"># BGP 鄰居摘要</span>
 show ip bgp summary
 <span class="c"># 直接進 FRR 的 shell</span>
@@ -113,7 +112,7 @@ sudo route_check.py</pre>
       const moved = prevMap ? map.filter((m, i) => m !== prevMap[i]).length : 0;
       out.innerHTML = '';
       const ctl = S.el('div', { class: 'row' });
-      NH.forEach((n, i) => ctl.appendChild(S.el('button', { class: 'btn sm' + (up[i] ? ' on' : ''), onclick: () => { prevMap = assign(); up[i] = !up[i]; draw(); } }, (up[i] ? '🟢 ' : '🔴 ') + n)));
+      NH.forEach((n, i) => ctl.appendChild(S.el('button', { class: 'btn sm' + (up[i] ? ' on' : ''), onclick: () => { prevMap = assign(); up[i] = !up[i]; draw(); } }, S.el('span', { class: 'dot ' + (up[i] ? 'up' : 'down') }), n)));
       out.appendChild(ctl);
       const mode = S.el('div', { style: 'margin:10px 0' });
       S.seg(mode, ['一般雜湊 (hash % N)', '彈性雜湊 (resilient)'], i => { if ((i === 1) !== resilient) { prevMap = assign(); resilient = i === 1; draw(); } }, resilient ? 1 : 0);
@@ -124,7 +123,7 @@ sudo route_check.py</pre>
         const chg = prevMap && prevMap[i] !== m;
         const c = S.el('div', { class: 'card', style: `box-shadow:none;padding:8px 10px;border-left:5px solid ${m >= 0 ? COLORS[m] : 'var(--bad)'};${chg ? 'background:var(--warn-soft)' : ''}` },
           S.el('div', { class: 'mono', style: 'font-size:12px' }, `${f.src}:${f.sp} → ${f.dst}:${f.dp}`),
-          S.el('div', { style: 'font-size:13px' }, m >= 0 ? '→ ' + NH[m] : '❌ 無可用路徑', chg ? S.el('span', { class: 'badge y', style: 'margin-left:6px' }, '換路徑') : null));
+          S.el('div', { style: 'font-size:13px' }, m >= 0 ? '→ ' + NH[m] : '無可用路徑', chg ? S.el('span', { class: 'badge y', style: 'margin-left:6px' }, '換路徑') : null));
         tbl.appendChild(c);
       });
       out.appendChild(tbl);
@@ -156,11 +155,6 @@ sudo route_check.py</pre>
     'RouteOrch 把 ROUTE_TABLE 轉成 SAI ROUTE_ENTRY；多個 next hop 時使用 NEXT_HOP_GROUP（ECMP）。',
     '路由的 next hop 必須先被 NeighOrch 解析（有 MAC）才能下到 ASIC。',
     'route_check.py 可以比對 APPL_DB 與 ASIC_DB 路由是否一致。',
-  ],
-  quiz: [
-    { q: '哪個程式負責把 CONFIG_DB 的 BGP_NEIGHBOR 轉成 FRR 設定？', options: ['fpmsyncd', 'bgpcfgd', 'zebra', 'orchagent'], answer: 1, explain: 'bgpcfgd 訂閱 CONFIG_DB，用範本與 vtysh 設定 FRR。' },
-    { q: 'APPL_DB 的 ROUTE_TABLE 是誰寫入的？', options: ['bgpd', 'zebra', 'fpmsyncd', 'RouteOrch'], answer: 2, explain: 'zebra 透過 FPM 把路由送給 fpmsyncd，由 fpmsyncd 寫入 APPL_DB。' },
-    { q: '一般 ECMP（hash mod N）在一個 next hop 斷線時會發生什麼？', options: ['只有走該路徑的 flow 移動', '許多原本正常的 flow 也可能被重新分配', '所有流量都丟棄', '流量全部改走 CPU'], answer: 1, explain: 'N 改變使 mod 結果改變；彈性雜湊（resilient hashing）才能把影響限制在斷線成員上。' },
   ],
   related: ['neighbor', 'swss', 'syncd-sai', 'cli-lab'],
   refs: [['FRRouting 文件', 'https://docs.frrouting.org/'], ['SONiC Routing / BGP 設計文件', 'https://github.com/sonic-net/SONiC/tree/master/doc']],

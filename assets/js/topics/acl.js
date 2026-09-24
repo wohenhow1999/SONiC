@@ -2,17 +2,16 @@ S.register({
   id: 'acl',
   category: 'net',
   order: 6,
-  icon: '🛡️',
   title: 'ACL 存取控制',
   en: 'Access Control Lists',
-  summary: '資料平面 ACL 由 AclOrch 直接訂閱 CONFIG_DB，寫進 ASIC 的 TCAM；控制平面 ACL 則由 host 上的 caclmgrd 轉成 iptables。用規則比對遊樂場理解優先權與比對邏輯。',
+  summary: "資料平面 ACL 由 AclOrch 直接訂閱 CONFIG_DB，以 SAI ACL 物件寫入 ASIC TCAM；控制平面 ACL 由 host 上的 caclmgrd 轉換為 iptables 規則。",
+  meta: [["程序", ["orchagent (AclOrch)", "caclmgrd (host)", "acl-loader"]], ["資料表", ["CONFIG_DB ACL_TABLE / ACL_RULE", "COUNTERS_DB ACL counters", "STATE_DB ACL_TABLE_TABLE"]], ["SAI 物件", ["ACL_TABLE", "ACL_TABLE_GROUP", "ACL_ENTRY", "ACL_COUNTER"]], ["工具", ["show acl table", "show acl rule", "aclshow -a", "crm show resources acl group"]]],
   tags: ['ACL', 'AclOrch', 'TCAM', 'acl-loader', 'caclmgrd', 'iptables'],
-  features: ['ACL 架構圖', 'ACL 規則比對遊樂場'],
   html: `
 <h2>兩種 ACL</h2>
-<div class="grid c2">
-  <div class="card"><b>🚦 資料平面 ACL（L3 / L3V6 / MIRROR…）</b><p class="muted" style="margin:6px 0 0">綁在 port / LAG / VLAN 上，在 ASIC 的 TCAM 中以線速比對。由 <b>AclOrch</b> 處理。</p></div>
-  <div class="card"><b>🔐 控制平面 ACL（CTRLPLANE）</b><p class="muted" style="margin:6px 0 0">保護交換機自己的服務（SSH、SNMP、NTP…）。由 host 上的 <b>caclmgrd</b> 轉成 <code>iptables</code> 規則，在 Linux 中過濾。</p></div>
+<div class="defs">
+  <div><b>資料平面 ACL（L3 / L3V6 / MIRROR…）</b><p>綁在 port / LAG / VLAN 上，在 ASIC 的 TCAM 中以線速比對。由 <b>AclOrch</b> 處理。</p></div>
+  <div><b>控制平面 ACL（CTRLPLANE）</b><p>保護交換機自己的服務（SSH、SNMP、NTP…）。由 host 上的 <b>caclmgrd</b> 轉成 <code>iptables</code> 規則，在 Linux 中過濾。</p></div>
 </div>
 <div id="d-acl"></div>
 
@@ -28,7 +27,7 @@ S.register({
 }</pre>
 <p>實務上常用 <code>acl-loader update full acl.json</code> 載入 OpenConfig 格式的 ACL 檔，它會轉成上面的 CONFIG_DB 格式。查看與計數：<code>show acl table</code>、<code>show acl rule</code>、<code>aclshow -a</code>。</p>
 
-<h2>互動：ACL 規則比對遊樂場</h2>
+<h2>ACL 規則比對模擬</h2>
 <p>ACL 表 <b>DATAACL</b>（ingress，綁在 Ethernet0）。ASIC 會找出<b>所有欄位都符合、且 PRIORITY 數字最大</b>的那條規則執行。修改封包欄位或規則，看看哪條規則會命中。</p>
 <div id="play"></div>
 `,
@@ -105,9 +104,9 @@ S.register({
         inp.addEventListener('change', () => { pkt[key] = inp.value; result = null; draw(); });
         return S.el('label', { class: 'field' }, lbl, inp);
       };
-      box.appendChild(S.el('h4', null, '📦 測試封包'));
+      box.appendChild(S.el('h4', null, '測試封包'));
       box.appendChild(S.el('div', { class: 'row' }, f('來源 IP', 'src'), f('目的 IP', 'dst'), f('協定', 'proto', ['TCP', 'UDP', 'ICMP']), f('目的埠', 'dport'),
-        S.el('button', { class: 'btn primary', style: 'align-self:flex-end', onclick: evalPkt }, '▶ 送出封包')));
+        S.el('button', { class: 'btn primary', style: 'align-self:flex-end', onclick: evalPkt }, '送出封包')));
       const presets = S.el('div', { class: 'chips' }, S.el('span', { class: 'muted', style: 'font-size:13px' }, '快速範例：'));
       [['SSH 從內網', '192.168.1.5', 'TCP', '22'], ['SSH 從外網', '8.8.8.8', 'TCP', '22'], ['被封鎖主機', '10.0.0.2', 'ICMP', ''], ['Ping', '172.16.0.9', 'ICMP', ''], ['HTTPS', '172.16.0.9', 'TCP', '443']].forEach(([n, s, p, d]) => {
         presets.appendChild(S.el('button', { class: 'chip', onclick: () => { Object.assign(pkt, { src: s, proto: p, dport: d }); evalPkt(); } }, n));
@@ -122,7 +121,7 @@ S.register({
         const m = match(r);
         const isHit = result === r;
         const tr = S.el('tr', { style: isHit ? 'background:var(--good-soft);outline:2px solid var(--good)' : '' });
-        tr.innerHTML = `<td class="mono"><b>${r.name}</b>${isHit ? ' ⬅ 命中' : ''}</td><td class="mono">${r.prio}</td><td style="font-size:13px">${m.why.map(([w, ok]) => `<span class="badge ${ok ? 'g' : 'r'}" style="margin:1px">${ok ? '✓' : '✗'} ${S.esc(w)}</span>`).join(' ')}</td><td><span class="badge ${r.action === 'DROP' ? 'r' : 'g'}">${r.action}</span></td><td class="mono">${r.hits}</td>`;
+        tr.innerHTML = `<td class="mono"><b>${r.name}</b>${isHit ? ' ← 命中' : ''}</td><td class="mono">${r.prio}</td><td style="font-size:13px">${m.why.map(([w, ok]) => `<span class="badge ${ok ? 'g' : 'r'}" style="margin:1px">${ok ? '' : ''} ${S.esc(w)}</span>`).join(' ')}</td><td><span class="badge ${r.action === 'DROP' ? 'r' : 'g'}">${r.action}</span></td><td class="mono">${r.hits}</td>`;
         const td = S.el('td');
         if (r.name !== 'DEFAULT_RULE') td.appendChild(S.el('button', { class: 'btn sm', onclick: () => { rules = rules.filter(x => x !== r); result = null; draw(); } }, '刪除'));
         tr.appendChild(td);
@@ -135,7 +134,7 @@ S.register({
 
       // 新增規則
       const nr = { prio: '9500', src: '', proto: '', dport: '', action: 'DROP' };
-      const add = S.el('div', { class: 'row', style: 'margin-top:12px' }, S.el('b', null, '➕ 新增規則：'));
+      const add = S.el('div', { class: 'row', style: 'margin-top:12px' }, S.el('b', null, '新增規則：'));
       const mk = (lbl, k, opts) => {
         const e = opts ? S.el('select', null, ...opts.map(o => S.el('option', { value: o }, o || '（任意）'))) : S.el('input', { value: nr[k], size: 12, placeholder: '（任意）' });
         e.addEventListener('change', () => (nr[k] = e.value));
@@ -174,11 +173,6 @@ S.register({
     'type=CTRLPLANE 的 ACL 由 host 上的 caclmgrd 轉成 iptables，保護交換機自身服務。',
     '多條規則同時符合時，PRIORITY 數字大的優先。',
     'acl-loader 用 OpenConfig 格式載入 ACL；aclshow 查看每條規則的命中計數。',
-  ],
-  quiz: [
-    { q: '資料平面 ACL 最終在哪裡被比對？', options: ['Linux iptables', 'ASIC 的 TCAM', 'orchagent', 'Redis'], answer: 1, explain: 'AclOrch 透過 SAI 把規則寫入 ASIC TCAM，以線速比對。' },
-    { q: '要限制只有特定網段可以 SSH 進交換機，應使用？', options: ['L3 類型 ACL', 'CTRLPLANE 類型 ACL（caclmgrd）', 'MIRROR ACL', 'VLAN'], answer: 1, explain: '保護交換機本身服務是控制平面 ACL 的工作。' },
-    { q: 'RULE_A（PRIORITY 100，DROP）和 RULE_B（PRIORITY 200，FORWARD）都符合時？', options: ['丟棄', '放行', '兩個都執行', '看建立順序'], answer: 1, explain: 'PRIORITY 數字大者優先，因此執行 RULE_B 的 FORWARD。' },
   ],
   related: ['copp', 'swss', 'config'],
   refs: [['ACL 設計文件（SONiC）', 'https://github.com/sonic-net/SONiC/wiki/ACL-High-Level-Design']],

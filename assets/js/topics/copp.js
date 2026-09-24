@@ -14,18 +14,17 @@
     id: 'copp',
     category: 'net',
     order: 7,
-    icon: '🚨',
     title: 'CoPP 與 CPU 封包路徑',
     en: 'Control Plane Policing',
-    summary: '哪些封包會被送到 CPU？怎麼送？送多少？CoPP 決定了 BGP、LACP、ARP 等控制封包如何從 ASIC 「上」到 Linux，並用限速器保護 CPU。',
+    summary: "CoPP 決定哪些封包由 ASIC 送往 CPU、使用哪個佇列與速率上限。設定由 copp_cfg.json 載入 CONFIG_DB，經 coppmgrd 與 CoppOrch 轉為 SAI hostif trap、trap group 與 policer。",
+    meta: [["程序", ["coppmgrd", "orchagent (CoppOrch)"]], ["資料表", ["CONFIG_DB COPP_TRAP / COPP_GROUP", "APPL_DB COPP_TABLE"]], ["設定檔", ["/etc/sonic/copp_cfg.json"]], ["SAI 物件", ["HOSTIF_TRAP", "HOSTIF_TRAP_GROUP", "POLICER", "HOSTIF_TABLE_ENTRY"]]],
     tags: ['CoPP', 'trap', 'hostif', 'policer', 'coppmgrd', 'CoppOrch', 'knet'],
-    features: ['封包路徑選擇器', '預設 CoPP 設定表'],
     html: `
-<h2>選一種封包，看它怎麼走</h2>
+<h2>封包路徑</h2>
 <div id="sel" style="margin-bottom:6px"></div>
 <div id="d-copp"></div>
 
-<h2>CoPP 設定</h2>
+<h2>預設 CoPP 設定</h2>
 <p>預設設定來自 <code>/etc/sonic/copp_cfg.json</code>，載入 CONFIG_DB 的 <code>COPP_TRAP</code> 與 <code>COPP_GROUP</code>。<b>coppmgrd</b> 把它們合併成 APPL_DB <code>COPP_TABLE</code>，再由 <b>CoppOrch</b> 建立 SAI 的 HOSTIF_TRAP、HOSTIF_TRAP_GROUP 與 POLICER。</p>
 <div id="tbl"></div>
 <p class="muted" style="font-size:14px">（簡化自預設 copp_cfg.json，實際數值依版本與平台而異；可用 <code>show copp configuration</code> 或 <code>sonic-db-cli CONFIG_DB keys "COPP_*"</code> 查看。）</p>
@@ -36,7 +35,7 @@
 <tr><td><code>copy</code></td><td>照常轉發，同時複製一份給 CPU</td><td>ARP、NDP</td></tr>
 <tr><td><code>drop</code></td><td>直接丟棄</td><td>—</td></tr>
 </tbody></table>
-<div class="callout"><div class="ct">🔎 封包怎麼從 ASIC 進到 Linux？</div><p>每個前面板 port 都有一個 hostif netdev（見「Port 與介面初始化」）。ASIC 把 trap 的封包經 PCIe 送到 CPU，廠商驅動（例如 Broadcom 的 knet）依照封包的來源 port，把它注入對應的 <code>Ethernet0</code> 等介面，Linux 程式就像從一般網卡收到封包一樣。反方向，程式從 Ethernet0 送出的封包也會被驅動交給 ASIC 送出。</p></div>
+<div class="callout"><div class="ct">CPU 封包的注入方式</div><p>每個前面板 port 都有一個 hostif netdev（見「Port 與介面初始化」）。ASIC 把 trap 的封包經 PCIe 送到 CPU，廠商驅動（例如 Broadcom 的 knet）依照封包的來源 port，把它注入對應的 <code>Ethernet0</code> 等介面，Linux 程式就像從一般網卡收到封包一樣。反方向，程式從 Ethernet0 送出的封包也會被驅動交給 ASIC 送出。</p></div>
 `,
     mount(root) {
       const dg = S.diagram(root.querySelector('#d-copp'), {
@@ -50,7 +49,7 @@
           { id: 'fwd', x: 180, y: 330, w: 140, h: 56, label: '硬體轉發', sub: '→ 出口 port', kind: 'hw', info: '<p>資料平面：直接從出口 port 送出。</p>' },
           { id: 'trap', x: 350, y: 200, w: 130, h: 56, label: 'HOSTIF_TRAP', sub: '比對 trap 類型', kind: 'hw', info: '<p>SAI hostif trap，例如 SAI_HOSTIF_TRAP_TYPE_BGP、LACP、ARP_REQUEST、IP2ME。每個 trap 屬於一個 trap group。</p>' },
           { id: 'q', x: 510, y: 200, w: 150, h: 56, label: 'CPU 佇列 + Policer', sub: 'trap group', kind: 'hw', info: '<p>trap group 決定 CPU 佇列（優先權）與 policer（速率上限，例如 600 pps）。超過就在硬體丟棄。</p>' },
-          { id: 'drop', x: 510, y: 330, w: 150, h: 56, label: '🗑️ 丟棄', sub: '超過速率', kind: 'ext', info: '<p>被 policer 丟棄的封包，可在 COUNTERS_DB 的 trap / policer 計數器看到。</p>' },
+          { id: 'drop', x: 510, y: 330, w: 150, h: 56, label: '丟棄', sub: '超過速率', kind: 'ext', info: '<p>被 policer 丟棄的封包，可在 COUNTERS_DB 的 trap / policer 計數器看到。</p>' },
           { id: 'drv', x: 690, y: 200, w: 120, h: 56, label: '驅動', sub: 'knet / genetlink', kind: 'kernel', info: '<p>廠商 kernel 驅動把封包依來源 port 注入到對應 netdev。</p>' },
           { id: 'nd', x: 840, y: 200, w: 140, h: 56, label: 'Linux netdev', sub: 'Ethernet0', kind: 'kernel', info: '<p>與 port 一一對應的 hostif 介面。</p>' },
           { id: 'bgpd', x: 510, y: 40, w: 100, h: 50, label: 'bgpd', kind: 'proc', info: '<p>bgp 容器。</p>' },
@@ -94,11 +93,6 @@
       'copp_cfg.json → CONFIG_DB COPP_TRAP/COPP_GROUP → coppmgrd → APPL_DB COPP_TABLE → CoppOrch → SAI。',
       'ARP 使用 copy：照常轉發並複製一份給 CPU；BGP、LACP 使用 trap。',
       '驅動把封包注入對應的 Linux netdev，讓標準 Linux 程式直接處理控制協定。',
-    ],
-    quiz: [
-      { q: '一般使用者流量會經過交換機的 CPU 嗎？', options: ['會，每個封包都會', '不會，由 ASIC 硬體轉發', '只有 TCP 會', '只有 UDP 會'], answer: 1, explain: '只有命中 trap 的控制封包才會送到 CPU。' },
-      { q: 'CoPP policer 的主要目的是？', options: ['加速轉發', '限制送往 CPU 的速率，保護控制平面', '加密封包', '做 NAT'], answer: 1, explain: '即使遭受攻擊，也不會讓 CPU 過載影響 BGP 等協定。' },
-      { q: 'ARP 封包的預設 trap 動作是 copy，代表？', options: ['只送 CPU', '丟棄', '照常轉發並複製一份給 CPU', '改寫後轉發'], answer: 2, explain: 'copy 讓 ARP 廣播正常在 VLAN 內泛洪，同時 CPU 也能學習。' },
     ],
     related: ['neighbor', 'port', 'acl', 'routing'],
   });

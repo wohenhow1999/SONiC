@@ -62,12 +62,11 @@
     id: 'redis-db',
     category: 'core',
     order: 1,
-    icon: '🗄️',
     title: 'Redis 資料庫',
     en: 'Redis Databases',
-    summary: 'SONiC 的所有狀態都放在 Redis：CONFIG_DB 放設定、APPL_DB 放期望狀態、ASIC_DB 放 SAI 物件、STATE_DB 放實際狀態、COUNTERS_DB 放計數器。搞懂誰寫、誰讀，就搞懂 SONiC 一半。',
+    summary: "SONiC 的狀態全部保存在 Redis：CONFIG_DB 為設定、APPL_DB 為應用層期望狀態、ASIC_DB 為 SAI 物件、STATE_DB 為實際狀態、COUNTERS_DB 為計數器。本章說明各 DB 的寫入者、讀取者、key 格式與存取類別。",
+    meta: [["容器", ["database"]], ["設定檔", ["/var/run/redis/sonic-db/database_config.json"]], ["存取工具", ["sonic-db-cli", "redis-cli -n <id>"]], ["函式庫", "<code>sonic-swss-common</code>（C++ <code>swss::Table</code>、Python <code>swsscommon</code>）"]],
     tags: ['Redis', 'CONFIG_DB', 'APPL_DB', 'ASIC_DB', 'STATE_DB', 'COUNTERS_DB'],
-    features: ['資料流向圖', 'DB 瀏覽器'],
     html: `
 <h2>資料庫一覽</h2>
 <table>
@@ -81,16 +80,16 @@
 <tr><td><b>STATE_DB</b></td><td>6</td><td><code>TABLE|key</code></td><td>*syncd、*mgrd、pmon、orchagent</td><td>*mgrd、CLI、SNMP</td></tr>
 </tbody></table>
 <p class="muted">DB 編號與連線資訊定義在 <code>/var/run/redis/sonic-db/database_config.json</code>。程式通常用名稱（例如 <code>sonic-db-cli CONFIG_DB</code>）而不是編號存取。</p>
-<div class="callout"><div class="ct">🔑 記住分隔符號</div><p>CONFIG_DB 與 STATE_DB 用 <code>|</code>（例如 <code>PORT|Ethernet0</code>）；APPL_DB、ASIC_DB、COUNTERS_DB 用 <code>:</code>（例如 <code>PORT_TABLE:Ethernet0</code>）。打錯分隔符號是新手查不到資料最常見的原因！</p></div>
+<div class="callout"><div class="ct">key 分隔符號</div><p>CONFIG_DB 與 STATE_DB 用 <code>|</code>（例如 <code>PORT|Ethernet0</code>）；APPL_DB、ASIC_DB、COUNTERS_DB 用 <code>:</code>（例如 <code>PORT_TABLE:Ethernet0</code>）。打錯分隔符號是新手查不到資料最常見的原因！</p></div>
 
-<h2>資料在 DB 之間怎麼流動</h2>
+<h2>資料流向</h2>
 <div id="d-db"></div>
 
-<h2>DB 瀏覽器</h2>
+<h2>資料範例</h2>
 <p>選一個 DB，再點選 key，看看裡面實際的欄位長什麼樣子，以及要用什麼指令查詢。</p>
 <div id="explorer"></div>
 
-<h2>元件怎麼「訂閱」DB？</h2>
+<h2>swss-common 表格存取類別</h2>
 <p>SONiC 在 <code>sonic-swss-common</code> 函式庫中包裝了幾種常用的表格類別：</p>
 <table>
 <thead><tr><th>類別</th><th>用在</th><th>原理</th></tr></thead>
@@ -182,12 +181,6 @@
       'CONFIG_DB / STATE_DB 的 key 用「|」分隔，APPL_DB / ASIC_DB / COUNTERS_DB 用「:」。',
       'CONFIG_DB 用 keyspace notification 訂閱；APPL_DB 用 ProducerStateTable / ConsumerStateTable 傳遞。',
       '除錯時可以用 sonic-db-cli 或 redis-cli 直接查看每一層，找出資料「卡」在哪一層。',
-    ],
-    quiz: [
-      { q: 'CONFIG_DB 中 Ethernet0 的 key 應該怎麼寫？', options: ['PORT_TABLE:Ethernet0', 'PORT|Ethernet0', 'PORT:Ethernet0', 'ASIC_STATE:PORT:Ethernet0'], answer: 1, explain: 'CONFIG_DB 使用「TABLE|key」格式，表名是 PORT。' },
-      { q: '哪個 DB 是 syncd 的主要輸入？', options: ['CONFIG_DB', 'APPL_DB', 'ASIC_DB', 'STATE_DB'], answer: 2, explain: 'orchagent 寫 ASIC_DB，syncd 讀 ASIC_DB 呼叫 SAI。' },
-      { q: '光模組的廠商、型號資訊通常在哪裡查得到？', options: ['CONFIG_DB', 'STATE_DB 的 TRANSCEIVER_INFO', 'ASIC_DB', 'APPL_DB 的 PORT_TABLE'], answer: 1, explain: 'pmon 的 xcvrd 讀光模組 EEPROM，寫入 STATE_DB 的 TRANSCEIVER_INFO 表。' },
-      { q: '<code>redis-cli -n 0</code> 連到的是哪個 DB？', options: ['CONFIG_DB', 'APPL_DB', 'ASIC_DB', 'COUNTERS_DB'], answer: 1, explain: 'APPL_DB 是 0 號、ASIC_DB 1 號、COUNTERS_DB 2 號、CONFIG_DB 4 號、STATE_DB 6 號。' },
     ],
     related: ['swss', 'config', 'cli-lab', 'counters'],
     refs: [['sonic-swss-common（Redis 表格函式庫）', 'https://github.com/sonic-net/sonic-swss-common'], ['Configuration 文件（CONFIG_DB schema）', 'https://github.com/sonic-net/SONiC/wiki/Configuration']],

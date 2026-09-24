@@ -2,20 +2,19 @@ S.register({
   id: 'cli-lab',
   category: 'lab',
   order: 1,
-  icon: '💻',
-  title: '虛擬交換機實驗室',
+  title: '模擬操作環境',
   en: 'Hands-on CLI Lab',
-  summary: '一台完整的虛擬 SONiC 交換機：輸入真實的 SONiC 指令，即時看到 CONFIG_DB、APPL_DB、STATE_DB、ASIC_DB 的變化與背後每個 daemon 的動作。完成任務清單來檢驗學習成果！',
+  summary: "可執行 SONiC 指令的模擬環境：指令修改 CONFIG_DB 後，即時顯示 APPL_DB、STATE_DB、ASIC_DB 的變化與各元件的處理順序。",
+  meta: [["拓樸", "Force10-S6000 HwSKU，8 個 40G port（Ethernet0–28），Ethernet0/4/8/12 有對端"], ["預設設定", "Ethernet0 <code>10.0.0.0/31</code>（對端 10.0.0.1）、Loopback0 <code>10.1.0.1/32</code>"], ["支援指令", "show、config（interface / vlan / portchannel / route / save / reload）、redis-cli、sonic-db-cli、docker ps"]],
   tags: ['CLI', '實作', 'config', 'show', 'redis-cli', 'sonic-db-cli'],
-  features: ['完整終端機', '8 個闖關任務'],
   html: `
-<div class="callout"><div class="ct">🧪 這是一個教學用模擬器</div>
+<div class="callout"><div class="ct">關於此模擬環境</div>
 <p>它依照 SONiC 真實的資料流設計（CLI → CONFIG_DB → *mgrd → APPL_DB → orchagent → ASIC_DB → syncd），指令語法也盡量與真實 SONiC 一致，但只實作了常用功能的簡化行為。拓樸：<b>Ethernet0～Ethernet28</b> 共 8 個 40G port，其中 <b>Ethernet0/4/8/12 有接線</b>；Ethernet0 預設是 <code>10.0.0.0/31</code> 的 routed port，對端為 <code>10.0.0.1</code>。</p></div>
 
-<h2>🎯 任務清單</h2>
+<h2>練習項目</h2>
 <div id="missions"></div>
 
-<h2>💻 終端機</h2>
+<h2>模擬終端</h2>
 <div id="term"></div>
 
 <h2>指令速查</h2>
@@ -52,7 +51,7 @@ S.register({
       const box = S.el('div', { class: 'w-box' });
       const n = M.filter((m, i) => done.has(i)).length;
       box.appendChild(S.el('div', { class: 'row', style: 'justify-content:space-between' },
-        S.el('b', null, `進度 ${n} / ${M.length}${n === M.length ? ' 🎉 全部完成！你已經掌握 SONiC 的基本操作與資料流了。' : ''}`),
+        S.el('b', null, `進度 ${n} / ${M.length}${n === M.length ? '，全部完成。' : ''}`),
         S.el('button', { class: 'btn sm', onclick: () => { done = new Set(); S.store.set(KEY, []); draw(); } }, '↺ 重設任務')));
       const bar = S.el('div', { class: 'side-progress', style: 'margin:6px 0 10px' }, S.el('div', { class: 'bar' }, S.el('i', { style: `width:${n / M.length * 100}%` })));
       box.appendChild(bar);
@@ -60,16 +59,16 @@ S.register({
         const d = done.has(i);
         const hint = S.el('code', { class: 'hidden', style: 'margin-left:8px' }, m.hint);
         box.appendChild(S.el('div', { class: 'row', style: `padding:6px 4px;border-bottom:1px dashed var(--border);${d ? 'opacity:.75' : ''}` },
-          S.el('span', { style: 'font-size:18px' }, d ? '✅' : '⬜'),
+          S.el('span', { class: 'badge ' + (d ? 'g' : 'n'), style: 'min-width:52px;text-align:center' }, d ? '完成' : '未完成'),
           S.el('span', { style: d ? 'text-decoration:line-through' : '' }, `${i + 1}. ${m.t}`),
-          d ? null : S.el('button', { class: 'btn sm', style: 'margin-left:auto', onclick: e => { hint.classList.toggle('hidden'); e.currentTarget.textContent = hint.classList.contains('hidden') ? '💡 提示' : '隱藏'; } }, '💡 提示'),
+          d ? null : S.el('button', { class: 'btn sm', style: 'margin-left:auto', onclick: e => { hint.classList.toggle('hidden'); e.currentTarget.textContent = hint.classList.contains('hidden') ? '提示' : '隱藏'; } }, '提示'),
           hint));
       });
       host.appendChild(box);
     }
     draw();
     S.terminal(root.querySelector('#term'), {
-      welcome: '歡迎來到 SONiC 百科虛擬交換機實驗室！輸入 help 查看所有指令，或依照上方任務一步步操作。',
+      welcome: 'SONiC 模擬環境。輸入 help 查看支援的指令，或依上方練習項目操作。',
       chips: ['help', 'show interfaces status', 'show ip interfaces', 'show ip route', 'docker ps', 'show version'],
       onRun(cmd, r, sim) {
         let changed = false;

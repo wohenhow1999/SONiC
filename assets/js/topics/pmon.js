@@ -2,18 +2,17 @@ S.register({
   id: 'pmon',
   category: 'ops',
   order: 2,
-  icon: '🌡️',
-  title: '平台監控 pmon',
+  title: '平台監控（pmon）',
   en: 'Platform Monitor',
-  summary: 'pmon 容器裡的一群 daemon 透過各廠商實作的 Platform API，監控光模組、電源、風扇、溫度與 LED，並把結果寫入 STATE_DB。',
+  summary: "pmon 容器中的 daemon 透過各廠商實作的 Platform API 監控光模組、電源、風扇、溫度、LED 與 EEPROM，並將結果寫入 STATE_DB。",
+  meta: [["容器", ["pmon"]], ["程序", ["xcvrd", "psud", "thermalctld", "ledd", "syseepromd", "pcied", "chassisd", "sensord"]], ["資料表", ["STATE_DB TRANSCEIVER_INFO / DOM_SENSOR", "PSU_INFO", "FAN_INFO", "TEMPERATURE_INFO", "EEPROM_INFO"]], ["原始碼", "<code>sonic-platform-daemons</code>、<code>sonic-platform-common</code>、<code>platform/&lt;vendor&gt;/</code>"]],
   tags: ['pmon', 'xcvrd', 'psud', 'thermalctld', 'ledd', 'Platform API', 'sonic_platform'],
-  features: ['pmon 架構圖', '溫度與風扇策略模擬'],
   html: `
-<h2>架構</h2>
+<h2>元件與 Platform API</h2>
 <p>SONiC 把「平台相關」的硬體差異封裝在 <b>Platform API</b>（Python 套件 <code>sonic_platform</code>）中。每家硬體廠商實作 <code>Chassis</code>、<code>Sfp</code>、<code>Psu</code>、<code>Fan</code>、<code>Thermal</code> 等類別；pmon 裡的 daemon 只呼叫標準介面。</p>
 <div id="d-pmon"></div>
 
-<h2>各 daemon 的工作</h2>
+<h2>daemon 職責</h2>
 <table>
 <thead><tr><th>daemon</th><th>負責</th><th>寫入 STATE_DB</th><th>相關指令</th></tr></thead>
 <tbody>
@@ -26,7 +25,7 @@ S.register({
 <tr><td>chassisd</td><td>機框式設備的線卡、模組管理</td><td>CHASSIS_*</td><td><code>show chassis modules status</code></td></tr>
 </tbody></table>
 
-<h2>互動：散熱策略模擬</h2>
+<h2>散熱策略模擬</h2>
 <p>thermalctld 依照平台定義的散熱策略（常見於 <code>thermal_policy.json</code>）調整風扇轉速，並在溫度超過門檻時發出告警。拖動溫度、或讓一顆風扇故障看看。</p>
 <div id="thermal"></div>
 `,
@@ -81,7 +80,7 @@ S.register({
     function draw() {
       const tv = box.querySelector('#tv');
       tv.textContent = temp + ' °C';
-      failBtn.textContent = fanFail ? '🔴 FAN-2 故障（點擊修復）' : '🟢 風扇正常（點擊模擬 FAN-2 故障）';
+      failBtn.textContent = fanFail ? '修復 FAN-2' : '模擬 FAN-2 故障';
       failBtn.classList.toggle('on', fanFail);
       let speed = temp <= 40 ? 30 : temp >= 70 ? 100 : Math.round(30 + (temp - 40) * (70 / 30));
       const reasons = [];
@@ -89,8 +88,8 @@ S.register({
       const lvl = temp >= CRIT ? 'crit' : temp >= HIGH ? 'high' : 'ok';
       const fans = ['FAN-1', 'FAN-2', 'FAN-3', 'FAN-4'].map(f => ({ n: f, ok: !(fanFail && f === 'FAN-2'), sp: fanFail && f === 'FAN-2' ? 0 : speed }));
       out.innerHTML = `
-        <div class="grid c3" style="margin-top:10px">${fans.map(f => `<div class="card" style="box-shadow:none;text-align:center"><div style="font-size:26px;display:inline-block;${f.ok && f.sp ? `animation:spin ${Math.max(0.15, 1.6 - f.sp / 70)}s linear infinite` : ''}">🌀</div><div class="mono"><b>${f.n}</b></div><div>${f.ok ? `${f.sp}%` : '<span class="badge r">NOT OK</span>'}</div></div>`).join('')}</div>
-        <div class="dg-desc" style="margin-top:10px">${lvl === 'crit' ? '🔥 <b>超過 critical 門檻（' + CRIT + '°C）</b>：記錄 critical 告警，許多平台的策略會在此時關機保護硬體。' : lvl === 'high' ? '⚠️ <b>超過 high 門檻（' + HIGH + '°C）</b>：記錄 warning，<code>show platform temperature</code> 的 Warning 欄位為 True。' : '✅ 溫度正常。'}${reasons.length ? '<br>' + reasons.join('<br>') : ''}</div>
+        <div style="display:grid;gap:8px;margin-top:12px">${fans.map(f => `<div style="display:grid;grid-template-columns:64px 1fr 88px;gap:12px;align-items:center;font-size:13px"><span class="mono">${f.n}</span><div class="meter"><i style="width:${f.sp}%;${f.ok ? '' : 'background:var(--bad)'}"></i></div><span class="mono" style="text-align:right">${f.ok ? f.sp + '%' : '<span class="badge r">NOT OK</span>'}</span></div>`).join('')}</div>
+        <div class="dg-desc" style="margin-top:10px">${lvl === 'crit' ? '<b>超過 critical 門檻（' + CRIT + '°C）</b>：記錄 critical 告警，許多平台的策略會在此時關機保護硬體。' : lvl === 'high' ? '<b>超過 high 門檻（' + HIGH + '°C）</b>：記錄 warning，<code>show platform temperature</code> 的 Warning 欄位為 True。' : '溫度正常。'}${reasons.length ? '<br>' + reasons.join('<br>') : ''}</div>
         <pre>$ show platform temperature
 Sensor    Temperature    High TH    Low TH    Crit High TH    Crit Low TH    Warning    Timestamp
 --------  -------------  ---------  --------  --------------  -------------  ---------  -----------------
@@ -109,10 +108,6 @@ $ sonic-db-cli STATE_DB hgetall "FAN_INFO|FAN-2"
     '平台資訊（光模組、PSU、風扇、溫度、EEPROM）都寫在 STATE_DB，show platform 系列指令讀取這裡。',
     'xcvrd 負責光模組；thermalctld 依散熱策略控制風扇並發出溫度告警。',
     'ledd 讀取 APPL_DB 的 oper_status 控制面板 LED。',
-  ],
-  quiz: [
-    { q: '光模組的型號與序號由哪個 daemon 讀取？', options: ['psud', 'xcvrd', 'ledd', 'syncd'], answer: 1, explain: 'xcvrd 讀取光模組 EEPROM，寫入 STATE_DB TRANSCEIVER_INFO。' },
-    { q: 'Platform API 的主要目的是？', options: ['控制 ASIC 轉發表', '讓 pmon 以統一介面存取各廠商不同的週邊硬體', '管理 Docker', '執行 BGP'], answer: 1, explain: '各廠商實作 sonic_platform 套件，上層 daemon 不需關心硬體細節。' },
   ],
   related: ['port', 'counters', 'containers'],
   refs: [['sonic-platform-common', 'https://github.com/sonic-net/sonic-platform-common'], ['sonic-platform-daemons', 'https://github.com/sonic-net/sonic-platform-daemons']],

@@ -2,25 +2,24 @@ S.register({
   id: 'architecture',
   category: 'intro',
   order: 2,
-  icon: '🗺️',
   title: '系統架構總覽',
   en: 'System Architecture',
-  summary: '一張圖看懂 SONiC 所有主要元件：各協定容器、中央 Redis、SWSS、syncd/SAI、Linux kernel 與 ASIC，以及它們之間資料如何流動。',
+  summary: "SONiC 主要元件與其互動關係：協定容器、Redis 狀態資料庫、SWSS、syncd/SAI、Linux kernel 與 ASIC，以及控制、資料與 CPU 封包三種路徑。",
+  meta: [["主要容器", ["database", "swss", "syncd", "bgp", "teamd", "lldp", "pmon", "snmp", "gnmi"]], ["核心程序", ["orchagent", "syncd", "fpmsyncd", "vlanmgrd", "portsyncd"]], ["核心資料庫", ["CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB", "COUNTERS_DB"]]],
   tags: ['架構', 'orchagent', 'syncd', 'Redis', 'FRR'],
-  features: ['全系統互動架構圖', 'BGP 路由流程動畫', '三種資料路徑'],
   html: `
 <h2>全系統架構圖</h2>
 <p>這是 SONiC 最常被引用的架構觀點。每一個方塊都可以點，看它是誰、在哪個容器、讀寫哪些資料。按「下一步」可以看<b>一條 BGP 學到的路由</b>如何一路寫進交換晶片。</p>
 <div id="d-arch"></div>
 
-<h2>三條要分清楚的「路徑」</h2>
-<div class="grid c3">
-  <div class="card"><b>① 設定 / 控制路徑</b><p class="muted" style="margin:6px 0 0">CLI、BGP 等軟體產生「想要的狀態」，經 Redis → SWSS → syncd → SAI 寫進晶片。這是本站大部分主題在講的路徑。</p></div>
-  <div class="card"><b>② 資料路徑（Data Plane）</b><p class="muted" style="margin:6px 0 0">一般使用者流量完全由 ASIC 以硬體轉發，<b>不經過 CPU</b>，也不經過 Linux。</p></div>
-  <div class="card"><b>③ CPU 封包路徑（Punt / Trap）</b><p class="muted" style="margin:6px 0 0">BGP、LACP、LLDP、ARP 等控制封包，會被 ASIC 抓（trap）給 CPU，經 driver 送進 Linux 的 <code>Ethernet0</code> 等介面，讓一般 Linux 程式處理。見「CoPP 與封包路徑」。</p></div>
+<h2>三種資料路徑</h2>
+<div class="defs">
+  <div><b>① 設定 / 控制路徑</b><p>CLI、BGP 等軟體產生「想要的狀態」，經 Redis → SWSS → syncd → SAI 寫進晶片。這是本站大部分主題在講的路徑。</p></div>
+  <div><b>② 資料路徑（Data Plane）</b><p>一般使用者流量完全由 ASIC 以硬體轉發，<b>不經過 CPU</b>，也不經過 Linux。</p></div>
+  <div><b>③ CPU 封包路徑（Punt / Trap）</b><p>BGP、LACP、LLDP、ARP 等控制封包，會被 ASIC 抓（trap）給 CPU，經 driver 送進 Linux 的 <code>Ethernet0</code> 等介面，讓一般 Linux 程式處理。見「CoPP 與封包路徑」。</p></div>
 </div>
 
-<h2>元件的兩大類：*mgrd 與 *syncd</h2>
+<h2>元件分類</h2>
 <table>
 <thead><tr><th>類型</th><th>資料方向</th><th>例子</th><th>在做什麼</th></tr></thead>
 <tbody>
@@ -29,7 +28,7 @@ S.register({
 <tr><td><b>orchagent</b></td><td>APPL_DB → ASIC_DB</td><td>PortsOrch、RouteOrch、NeighOrch、AclOrch…</td><td>把高階物件轉成 SAI 物件，處理物件之間的相依關係</td></tr>
 <tr><td><b>syncd</b></td><td>ASIC_DB → SAI → ASIC</td><td>syncd（每顆 ASIC 一個）</td><td>呼叫廠商 SAI，並把硬體事件（port 狀態、FDB 學習）回報上去</td></tr>
 </tbody></table>
-<div class="callout warn"><div class="ct">⚠️ 別搞混</div><p><b>syncd</b>（單獨一個，負責 SAI）和 <b>*syncd</b>（portsyncd、neighsyncd 這一類，在 swss 容器）名字很像，但角色完全不同！</p></div>
+<div class="callout warn"><div class="ct">命名易混淆</div><p><b>syncd</b>（單獨一個，負責 SAI）和 <b>*syncd</b>（portsyncd、neighsyncd 這一類，在 swss 容器）名字很像，但角色完全不同！</p></div>
 `,
   mount(root) {
     S.diagram(root.querySelector('#d-arch'), {
@@ -53,7 +52,7 @@ S.register({
         { id: 'pmon', x: 696, y: 84, w: 118, h: 48, label: 'pmon', kind: 'container', info: '<p>Platform Monitor：xcvrd（光模組）、psud（電源）、thermalctld（溫度/風扇）、ledd、syseepromd… 結果寫入 <code>STATE_DB</code>。</p>' },
         { id: 'cli', x: 844, y: 20, w: 136, h: 48, label: 'CLI (config/show)', kind: 'cli', info: '<p>在 host 上執行的 Python click 程式。<code>config</code> 寫 CONFIG_DB，<code>show</code> 讀各個 DB 或呼叫其他工具（vtysh、teamdctl…）。</p>' },
         { id: 'host', x: 844, y: 84, w: 136, h: 48, label: 'host daemons', sub: 'hostcfgd / caclmgrd', kind: 'proc', info: '<p>直接跑在 host（不在容器）的服務，例如 <b>hostcfgd</b>（AAA、NTP 等主機設定）、<b>caclmgrd</b>（把控制平面 ACL 轉成 iptables）。</p>' },
-        { id: 'redis', x: 16, y: 226, w: 968, h: 56, label: 'database 容器：Redis — CONFIG_DB · APPL_DB · STATE_DB · ASIC_DB · COUNTERS_DB · FLEX_COUNTER_DB', kind: 'db', info: '<p>整個系統的中樞。所有容器都透過 unix socket / TCP 連到它。每個邏輯 DB 在 redis 裡是不同的 DB 編號（例如 APPL_DB=0、ASIC_DB=1、CONFIG_DB=4、STATE_DB=6）。</p><p>👉 詳見「Redis 資料庫」主題。</p>' },
+        { id: 'redis', x: 16, y: 226, w: 968, h: 56, label: 'database 容器：Redis — CONFIG_DB · APPL_DB · STATE_DB · ASIC_DB · COUNTERS_DB · FLEX_COUNTER_DB', kind: 'db', info: '<p>整個系統的中樞。所有容器都透過 unix socket / TCP 連到它。每個邏輯 DB 在 redis 裡是不同的 DB 編號（例如 APPL_DB=0、ASIC_DB=1、CONFIG_DB=4、STATE_DB=6）。</p><p>詳見「Redis 資料庫」主題。</p>' },
         { id: 'mgrd', x: 34, y: 352, w: 200, h: 84, label: '*mgrd', sub: 'vlanmgrd / intfmgrd\nportmgrd / nbrmgrd …', kind: 'proc', info: '<p>訂閱 CONFIG_DB。例如 vlanmgrd 看到 <code>VLAN|Vlan100</code> 就在 kernel 建 Vlan100 介面，然後寫 <code>APPL_DB VLAN_TABLE:Vlan100</code>。</p>' },
         { id: 'syncds', x: 252, y: 352, w: 200, h: 84, label: '*syncd', sub: 'portsyncd / neighsyncd', kind: 'proc', info: '<p>監聽 Linux netlink 事件：portsyncd 追蹤 netdev 建立與狀態，neighsyncd 追蹤 ARP/NDP 鄰居，寫進 APPL_DB / STATE_DB。</p>' },
         { id: 'orch', x: 470, y: 352, w: 230, h: 84, label: 'orchagent', sub: 'PortsOrch / RouteOrch\nNeighOrch / AclOrch …', kind: 'proc', info: '<p>SONiC 的大腦。訂閱 APPL_DB（以及少數 CONFIG_DB 表），由許多 <b>Orch</b> 模組處理不同功能，把它們轉成 SAI 物件，透過 <b>sairedis</b> 函式庫寫進 ASIC_DB。</p><p>它也負責相依性：例如路由的 next hop 還沒解析出 MAC 前，路由不會下到 ASIC。</p>' },
@@ -98,11 +97,6 @@ S.register({
     '*mgrd 把 CONFIG_DB 套用到 kernel；*syncd 把 kernel/協定狀態同步回 Redis；orchagent 把 APPL_DB 轉成 ASIC_DB。',
     'syncd 是唯一呼叫 SAI 的元件，所以晶片只被一個程序操作。',
     '資料封包由 ASIC 直接轉發；控制封包才會被 trap 到 CPU、進入 Linux。',
-  ],
-  quiz: [
-    { q: '哪個元件負責把 APPL_DB 的內容轉成 SAI 物件寫進 ASIC_DB？', options: ['syncd', 'orchagent', 'fpmsyncd', 'vlanmgrd'], answer: 1, explain: 'orchagent 由許多 Orch 模組組成，負責 APPL_DB → ASIC_DB 的轉換。' },
-    { q: 'BGP 路由從 zebra 進入 SONiC Redis 的橋樑是？', options: ['bgpcfgd', 'fpmsyncd', 'neighsyncd', 'teamsyncd'], answer: 1, explain: 'zebra 透過 FPM 通道把路由送給 fpmsyncd，再寫入 APPL_DB ROUTE_TABLE。' },
-    { q: '一般使用者的資料流量通常怎麼被轉發？', options: ['經過 Linux kernel 路由', '經過 orchagent', '由 ASIC 硬體直接轉發', '經過 syncd'], answer: 2, explain: '資料平面在 ASIC；軟體只負責把表項設定好。' },
   ],
   related: ['overview', 'containers', 'swss', 'syncd-sai', 'routing'],
   refs: [['SONiC Architecture（官方 Wiki）', 'https://github.com/sonic-net/SONiC/wiki/Architecture']],
