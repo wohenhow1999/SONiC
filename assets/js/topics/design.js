@@ -62,20 +62,20 @@ S.register({
 `,
   mount(root) {
     const nodes = [], edges = [];
-    ['S1', 'S2', 'S3', 'S4'].forEach((s, i) => nodes.push({ id: s, x: 170 + i * 180, y: 30, w: 120, h: 50, label: `Spine ${i + 1}`, sub: 'AS 65100', kind: 'proc', info: `<p>Spine ${i + 1}：只做 L3 轉發，所有 spine 使用相同 ASN。每台 leaf 都連到每台 spine。</p>` }));
-    ['L1', 'L2', 'L3', 'L4', 'L5'].forEach((l, i) => nodes.push({ id: l, x: 40 + i * 190, y: 200, w: 150, h: 56, label: `Leaf ${i + 1}`, sub: `AS 651${String(i + 1).padStart(2, '0')} · VTEP`, kind: 'container', info: `<p>Leaf ${i + 1}：伺服器閘道（anycast gateway）、VTEP，以 eBGP 連到 4 台 spine，形成 4 路 ECMP。</p>` }));
-    ['H1', 'H2', 'H3', 'H4', 'H5'].forEach((h, i) => nodes.push({ id: h, x: 55 + i * 190, y: 330, w: 120, h: 44, label: `Rack ${i + 1}`, sub: '伺服器', kind: 'ext', info: '<p>機櫃內的伺服器，以 LAG 或 bonding 連到 leaf（或 leaf pair）。</p>' }));
+    ['S1', 'S2', 'S3', 'S4'].forEach((s, i) => nodes.push({ id: s, x: 170 + i * 180, y: 30, w: 120, h: 50, lv: 2, y3: 120, label: `Spine ${i + 1}`, sub: 'AS 65100', kind: 'proc', info: `<p>Spine ${i + 1}：只做 L3 轉發，所有 spine 使用相同 ASN。每台 leaf 都連到每台 spine。</p>` }));
+    ['L1', 'L2', 'L3', 'L4', 'L5'].forEach((l, i) => nodes.push({ id: l, x: 40 + i * 190, y: 200, w: 150, h: 56, lv: 1, y3: 170, label: `Leaf ${i + 1}`, sub: `AS 651${String(i + 1).padStart(2, '0')} · VTEP`, kind: 'container', info: `<p>Leaf ${i + 1}：伺服器閘道（anycast gateway）、VTEP，以 eBGP 連到 4 台 spine，形成 4 路 ECMP。</p>` }));
+    ['H1', 'H2', 'H3', 'H4', 'H5'].forEach((h, i) => nodes.push({ id: h, x: 55 + i * 190, y: 330, w: 120, h: 44, lv: 0, y3: 250, label: `Rack ${i + 1}`, sub: '伺服器', kind: 'ext', info: '<p>機櫃內的伺服器，以 LAG 或 bonding 連到 leaf（或 leaf pair）。</p>' }));
     ['L1', 'L2', 'L3', 'L4', 'L5'].forEach(l => ['S1', 'S2', 'S3', 'S4'].forEach(s => edges.push({ from: l, to: s, id: `${l}-${s}` })));
     ['1', '2', '3', '4', '5'].forEach(i => edges.push({ from: 'H' + i, to: 'L' + i, id: `H${i}-L${i}` }));
     S.diagram(root.querySelector('#d-clos'), {
       title: 'Spine-leaf fabric 與東西向流量',
-      w: 1000, h: 400,
+      w: 1000, h: 400, layerGap: 110, view3d: 'iso',
       nodes, edges,
       steps: [
         { title: '東西向流量', text: 'Rack 1 的伺服器送往 Rack 4：先到 Leaf 1。', nodes: ['H1', 'L1'], edges: ['H1-L1'] },
         { title: 'ECMP 分散', text: 'Leaf 1 對 Rack 4 的前綴有 4 條等價路徑（經 4 台 spine），依 5-tuple 雜湊選一條。', nodes: ['L1', 'S1', 'S2', 'S3', 'S4'], edges: ['L1-S1', 'L1-S2', 'L1-S3', 'L1-S4'] },
         { title: '到達目的', text: '任一 spine 都直接連到 Leaf 4，兩跳即可到達。', nodes: ['S1', 'S2', 'S3', 'S4', 'L4', 'H4'], edges: ['L4-S1', 'L4-S2', 'L4-S3', 'L4-S4', 'H4-L4'] },
-        { title: 'Spine 失效', text: '任一 spine 失效只減少 1/4 的容量；BGP + BFD 在次秒級撤除該路徑，RouteOrch 更新 NEXT_HOP_GROUP。', nodes: ['L1', 'S2', 'S3', 'S4', 'L4'], edges: ['L1-S2', 'L1-S3', 'L1-S4', 'L4-S2', 'L4-S3', 'L4-S4'] },
+        { title: 'Spine 失效', text: '任一 spine 失效只減少 1/4 的容量；BGP + BFD 在次秒級撤除該路徑，RouteOrch 更新 NEXT_HOP_GROUP。', nodes: ['L1', 'S2', 'S3', 'S4', 'L4'], edges: ['L1-S2', 'L1-S3', 'L1-S4', 'L4-S2', 'L4-S3', 'L4-S4'], down: ['L1-S1', 'L2-S1', 'L3-S1', 'L4-S1', 'L5-S1'] },
       ],
     });
 

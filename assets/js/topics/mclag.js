@@ -22,6 +22,10 @@ S.register({
     'primary keepalive 中斷但 backup keepalive 確認 active 仍存活時，standby 會關閉自己的 MCLAG port channel，避免 split-brain。',
   ],
   html: `
+<h2>拓樸與流量</h2>
+<p>兩台 peer 對下游呈現為同一台 LACP 設備。逐步播放可以看到正常轉送、orphan port 的流量，以及成員鏈路失效時流量如何經 peer link 繞行。</p>
+<div id="d-mc3"></div>
+
 <h2>架構與名詞</h2>
 <table>
 <thead><tr><th>名詞</th><th>說明</th></tr></thead>
@@ -150,6 +154,32 @@ mclagdctl dump state</pre>
         `<div>Host A 上行：${r.hostUp}</div><div>Host C → Host A：${r.hostC}</div>` + r.notes.map(n => `<div>${n}</div>`).join('') }));
     }
     draw();
+
+    S.diagram(root.querySelector('#d-mc3'), {
+      title: 'MCLAG 拓樸',
+      w: 1000, h: 420, layerGap: 120, view3d: 'iso',
+      nodes: [
+        { id: 'sp', x: 390, y: 20, w: 220, h: 52, lv: 2, label: 'Spine', sub: 'L3 · ECMP 到兩台 peer', kind: 'hw', info: '<p>上游以 L3 連到兩台 peer，兩條路徑等價。</p>' },
+        { id: 'p1', x: 130, y: 170, w: 220, h: 58, lv: 1, label: 'Peer 1', sub: 'active · 10.0.0.1', kind: 'hw', info: '<p>MCLAG peer。與 Peer 2 以 ICCP 同步 MAC、ARP 與介面狀態；兩台對下游使用相同的 LACP system MAC。</p>' },
+        { id: 'p2', x: 650, y: 170, w: 220, h: 58, lv: 1, label: 'Peer 2', sub: 'standby · 10.0.0.2', kind: 'hw', info: '<p>另一台 peer，另外接了一台只連到它的 orphan 主機。</p>' },
+        { id: 'ha', x: 390, y: 330, w: 220, h: 56, lv: 0, label: 'Host A', sub: 'PortChannel10 · LACP', kind: 'ext', info: '<p>雙歸屬主機：兩條成員鏈路分別接到兩台 peer，LACP 認為對端是同一台設備。</p>' },
+        { id: 'hc', x: 760, y: 330, w: 200, h: 56, lv: 0, label: 'Host C', sub: 'orphan port', kind: 'ext', info: '<p>只接在 Peer 2 的單歸屬主機。</p>' },
+      ],
+      edges: [
+        { from: 'p1', to: 'sp', id: 'u1', label: 'uplink' }, { from: 'p2', to: 'sp', id: 'u2', label: 'uplink' },
+        { from: 'p1', to: 'p2', id: 'pl', bi: true, label: 'peer link（ICCP）' },
+        { from: 'p1', to: 'p2', id: 'ka', dash: true, bi: true, label: 'keepalive', via: [[240, 290], [760, 290]] },
+        { from: 'ha', to: 'p1', id: 'm1', label: 'Po10 成員' }, { from: 'ha', to: 'p2', id: 'm2', label: 'Po10 成員' },
+        { from: 'hc', to: 'p2', id: 'oc' },
+      ],
+      steps: [
+        { title: 'LACP 綁定', text: 'Host A 的兩條鏈路分別接到 Peer 1 與 Peer 2。兩台 peer 以相同的 system MAC 回應 LACP，Host A 視為一個 PortChannel。', nodes: ['ha', 'p1', 'p2'], edges: ['m1', 'm2'] },
+        { title: 'ICCP 同步', text: 'iccpd 經 peer link 建立 ICCP session，同步 MAC、ARP 與成員狀態；keepalive 走另一條路徑，用來分辨「peer 故障」與「peer link 斷線」。', nodes: ['p1', 'p2'], edges: ['pl', 'ka'] },
+        { title: '南北向流量', text: 'Host A 依 LACP hash 選一條成員鏈路；收到的 peer 直接以 L3 轉給 spine，不經 peer link。', nodes: ['ha', 'p1', 'sp'], edges: ['m1', 'u1'] },
+        { title: 'Orphan port', text: 'Host C 送往 Host A：Peer 2 有本地的 Po10 成員，直接從本地送出。peer link 只承載必要的流量，且從 peer link 進來的 BUM 不會再送往 MCLAG 成員（isolation）。', nodes: ['hc', 'p2', 'ha'], edges: ['oc', 'm2'] },
+        { title: '成員鏈路失效', text: 'Peer 2 到 Host A 的鏈路斷線：Peer 2 解除該成員的隔離，Host C 的流量改經 peer link 到 Peer 1，再送到 Host A。', nodes: ['hc', 'p2', 'p1', 'ha'], edges: ['oc', 'pl', 'm1'], down: ['m2'] },
+      ],
+    });
 
     S.diagram(root.querySelector('#d-mclag'), {
       title: 'MCLAG 在 SONiC 中的元件',

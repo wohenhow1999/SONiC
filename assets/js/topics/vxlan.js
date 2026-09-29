@@ -22,6 +22,10 @@ S.register({
     'EVPN multihoming 以 ESI 識別多台 VTEP 共用的 Ethernet Segment，以 Type-1 / Type-4 路由完成 aliasing、快速收斂與 DF 選舉。',
   ],
   html: `
+<h2>Overlay 與 underlay</h2>
+<p>VXLAN 把二層訊框包在 UDP / IP 裡，讓 overlay 上的主機彷彿在同一個 VLAN，而 underlay 只看到 VTEP 之間的 IP 封包。切換到 3D 可以看到 overlay 平面疊在 underlay 之上。</p>
+<div id="d-vx3"></div>
+
 <h2>元件與資料流</h2>
 <p>下圖以「遠端 leaf 上的主機 MAC 經 EVPN Type-2 路由被本地學到」為例，說明控制平面如何把遠端 MAC 下發到 ASIC。</p>
 <div id="d-vx"></div>
@@ -146,6 +150,41 @@ sonic-db-cli APPL_DB keys "VXLAN_*"
 sonic-db-cli ASIC_DB keys "*TUNNEL*"</pre>
 `,
   mount(root) {
+    S.diagram(root.querySelector('#d-vx3'), {
+      title: 'VXLAN overlay 疊加在 IP underlay 之上',
+      w: 1000, h: 520, layerGap: 190, view3d: 'iso',
+      groups: [
+        { x: 20, y: 16, w: 960, h: 210, y3: 80, lv: 1, kind: 'container', label: 'Overlay：VLAN 100 ↔ VNI 10100（EVPN 控制平面）' },
+        { x: 20, y: 250, w: 960, h: 250, y3: 20, lv: 0, kind: 'hw', label: 'Underlay：IP fabric（eBGP · ECMP · MTU 9100）' },
+      ],
+      nodes: [
+        { id: 'ha', x: 90, y: 40, w: 150, h: 50, y3: 100, lv: 1, label: 'Host A', sub: '10.10.0.11 · VLAN 100', kind: 'ext', info: '<p>與 Host B 在同一個子網路，認為彼此在同一個 L2 網段。</p>' },
+        { id: 'hb', x: 760, y: 40, w: 150, h: 50, y3: 100, lv: 1, label: 'Host B', sub: '10.10.0.22 · VLAN 100', kind: 'ext', info: '<p>位於另一個機櫃，接在 Leaf-2。</p>' },
+        { id: 'v1', x: 80, y: 140, w: 170, h: 56, y3: 210, lv: 1, label: 'VTEP-1', sub: '10.1.0.1 · Vlan100 ↔ 10100', kind: 'proc', info: '<p>Leaf-1 上的 VXLAN tunnel endpoint：依 FDB 決定遠端 VTEP，加上 VXLAN / UDP / IP 標頭。</p>' },
+        { id: 'v2', x: 750, y: 140, w: 170, h: 56, y3: 210, lv: 1, label: 'VTEP-2', sub: '10.1.0.2 · Vlan100 ↔ 10100', kind: 'proc', info: '<p>收到目的為自己的 UDP 4789 封包後解封裝，依 VNI 找到 VLAN 100。</p>' },
+        { id: 's1', x: 330, y: 290, w: 140, h: 50, y3: 60, lv: 0, label: 'Spine-1', sub: 'AS 65100', kind: 'hw', info: '<p>只依外層 IP 轉送，不需要知道 VNI 或主機 MAC。也常作為 EVPN 路由的轉送者。</p>' },
+        { id: 's2', x: 540, y: 290, w: 140, h: 50, y3: 60, lv: 0, label: 'Spine-2', sub: 'AS 65100', kind: 'hw', info: '<p>與 Spine-1 形成 ECMP。</p>' },
+        { id: 'l1', x: 80, y: 420, w: 170, h: 56, y3: 210, lv: 0, label: 'Leaf-1', sub: 'Loopback 10.1.0.1', kind: 'hw', info: '<p>實體交換機。VTEP-1 是它在 overlay 上的角色，VTEP 位址通常是 loopback。</p>' },
+        { id: 'l2', x: 750, y: 420, w: 170, h: 56, y3: 210, lv: 0, label: 'Leaf-2', sub: 'Loopback 10.1.0.2', kind: 'hw', info: '<p>實體交換機，承載 VTEP-2。</p>' },
+      ],
+      edges: [
+        { from: 'ha', to: 'v1', label: '乙太網路訊框', id: 'a1' },
+        { from: 'v1', to: 'v2', label: 'VXLAN 隧道 · UDP 4789', id: 'tun', bi: true },
+        { from: 'v2', to: 'hb', id: 'b1' },
+        { from: 'v1', to: 'l1', dash: true, label: '封裝', id: 'enc' },
+        { from: 'l1', to: 's1', id: 'u1' }, { from: 'l1', to: 's2', id: 'u2' },
+        { from: 's1', to: 'l2', id: 'u3' }, { from: 's2', to: 'l2', id: 'u4' },
+        { from: 'l2', to: 'v2', dash: true, label: '解封裝', id: 'dec' },
+      ],
+      steps: [
+        { title: 'EVPN 學習', text: 'Leaf-2 學到 Host B 的 MAC，以 BGP EVPN Type-2 路由經 spine 通告；Leaf-1 安裝遠端 FDB：00:11:22:33:44:22 → VTEP 10.1.0.2。', nodes: ['v2', 'l2', 's1', 's2', 'l1', 'v1'], edges: ['u3', 'u4', 'u1', 'u2'] },
+        { title: '主機送出訊框', text: 'Host A 送出目的為 Host B MAC 的訊框，進入 Leaf-1 的 VLAN 100。', nodes: ['ha', 'v1'], edges: ['a1'] },
+        { title: 'VTEP-1 封裝', text: 'FDB 命中遠端 VTEP：加上 VXLAN 標頭（VNI 10100）、外層 UDP（來源 port 由內層 hash 產生）與外層 IP 10.1.0.1 → 10.1.0.2。', nodes: ['v1', 'l1', 'v2'], edges: ['enc', 'tun'] },
+        { title: 'Underlay 轉送', text: 'Spine 只看外層 IP，依外層 UDP 來源 port 做 ECMP，不同的內層流量會分散到兩台 spine。', nodes: ['l1', 's1', 's2', 'l2'], edges: ['u1', 'u2', 'u3', 'u4'] },
+        { title: 'VTEP-2 解封裝', text: '外層目的 IP 是自己的 VTEP 位址：拆掉外層標頭，依 VNI 10100 找到 VLAN 100，再依內層 MAC 送到 Host B。', nodes: ['l2', 'v2', 'hb'], edges: ['dec', 'b1'] },
+      ],
+    });
+
     S.diagram(root.querySelector('#d-vx'), {
       title: 'EVPN Type-2：遠端 MAC 的學習與下發',
       w: 1000, h: 440,

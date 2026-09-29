@@ -152,6 +152,32 @@
     root.appendChild(head);
     root.appendChild(canvas);
 
+    // 3D 檢視（three.js 可用時）
+    let v3 = null, v3host = null, mode = '2d';
+    const st3 = { nodes: [], edges: [], down: [], sel: null, ordered: false };
+    const sync3 = () => { if (v3) v3.setState(st3); };
+    if (S.has3d && S.has3d() && spec.view3d !== false) {
+      v3host = S.el('div', { class: 'v3-host' });
+      root.appendChild(v3host);
+      const def = window.innerWidth >= 760 ? '3d' : '2d';
+      const sw = S.el('div', { class: 'dg-view' });
+      const b3 = S.el('button', { onclick: () => setMode('3d') }, '3D');
+      const b2 = S.el('button', { onclick: () => setMode('2d') }, '2D');
+      sw.appendChild(b3); sw.appendChild(b2);
+      head.appendChild(sw);
+      const setMode = m => {
+        mode = m;
+        S.store.set('dgview', m);
+        b3.classList.toggle('on', m === '3d'); b2.classList.toggle('on', m === '2d');
+        canvas.hidden = m === '3d'; v3host.hidden = m !== '3d';
+        if (m === '3d' && !v3) {
+          try { v3 = S.view3d(v3host, spec, { onSelect: nid => selectNode(nid) }); sync3(); }
+          catch (err) { console.warn('3D 檢視無法建立', err); v3 = null; sw.remove(); v3host.remove(); canvas.hidden = false; mode = '2d'; }
+        }
+      };
+      requestAnimationFrame(() => setMode(S.store.get('dgview', def)));
+    }
+
     // legend
     if (spec.legend !== false) {
       const kinds = Array.isArray(spec.legend) ? spec.legend : [...new Set((spec.nodes || []).map(n => n.kind || 'proc'))];
@@ -186,9 +212,10 @@
     root.appendChild(panel);
 
     function clearHL() {
+      st3.nodes = []; st3.edges = []; st3.down = []; st3.sel = null; st3.ordered = false;
       s.classList.remove('dimmed');
       Object.values(nodeEls).forEach(g => g.classList.remove('hl', 'sel'));
-      Object.values(edgeEls).forEach(x => { x.g.classList.remove('hl'); x.path.setAttribute('marker-end', `url(#${id}-an)`); if (x.e.bi) x.path.setAttribute('marker-start', `url(#${id}-an)`); });
+      Object.values(edgeEls).forEach(x => { x.g.classList.remove('hl', 'down'); x.path.setAttribute('marker-end', `url(#${id}-an)`); if (x.e.bi) x.path.setAttribute('marker-start', `url(#${id}-an)`); });
     }
     function hlEdge(k) {
       const x = edgeEls[k];
@@ -209,11 +236,17 @@
       cur = Math.max(-1, Math.min(steps.length - 1, i));
       if (dots) [...dots.children].forEach((d, j) => { d.classList.toggle('on', j === cur); d.classList.toggle('past', j < cur); });
       if (prevBtn) { prevBtn.disabled = cur <= -1; nextBtn.disabled = cur >= steps.length - 1; }
-      if (cur < 0) { showIntro(); return; }
+      if (cur < 0) { showIntro(); sync3(); return; }
       const st = steps[cur];
       s.classList.add('dimmed');
       (st.nodes || []).forEach(n => nodeEls[n] && nodeEls[n].classList.add('hl'));
       (st.edges || []).forEach(hlEdge);
+      st3.nodes = (st.nodes || []).slice();
+      st3.edges = (st.edges || []).map(k => edgeEls[k] && edgeEls[k].e).filter(Boolean);
+      (st.down || []).forEach(k => edgeEls[k] && edgeEls[k].g.classList.add('down'));
+      st3.down = (st.down || []).map(k => edgeEls[k] && edgeEls[k].e).filter(Boolean);
+      st3.ordered = true;
+      sync3();
       desc.innerHTML = `<div class="st">${spec.noControls ? '' : `<span class="sn">${cur + 1}/${steps.length}</span>`}${st.title}</div><div>${st.text || ''}</div>`;
       if (cur >= steps.length - 1) stop();
     }
@@ -246,8 +279,11 @@
           hlEdge(edgeKey(e));
           const other = e.from === nid ? e.to : e.from;
           nodeEls[other] && nodeEls[other].classList.add('hl');
+          st3.nodes.push(other); st3.edges.push(e);
         }
       });
+      st3.sel = nid;
+      sync3();
       desc.innerHTML = `<div class="nt" style="--k:var(--k-${n.kind || 'proc'})"><i></i>${S.esc(n.label.replace(/\n/g, ' '))}<span class="kind">${KIND_NAME[n.kind || 'proc'] || ''}</span></div><div>${n.info || '<span class="muted">（此節點無額外說明）</span>'}</div>`;
     }
 

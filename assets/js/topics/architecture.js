@@ -12,6 +12,10 @@ S.register({
 <p>這是 SONiC 最常被引用的架構觀點。每一個方塊都可以點，看它是誰、在哪個容器、讀寫哪些資料。按「下一步」可以看<b>一條 BGP 學到的路由</b>如何一路寫進交換晶片。</p>
 <div id="d-arch"></div>
 
+<h2>分層檢視</h2>
+<p>把 SONiC 依職責分成四層：上層的應用容器產生意圖，Redis 作為各層之間唯一的介面，SWSS 與 SYNCD 把意圖轉成 SAI 呼叫，最後寫入交換晶片。切到 3D 可以看到資料如何一層層往下流。</p>
+<div id="d-stack"></div>
+
 <h2>三種資料路徑</h2>
 <div class="defs">
   <div><b>① 設定 / 控制路徑</b><p>CLI、BGP 等軟體產生「想要的狀態」，經 Redis → SWSS → syncd → SAI 寫進晶片。這是本站大部分主題在講的路徑。</p></div>
@@ -31,6 +35,59 @@ S.register({
 <div class="callout warn"><div class="ct">命名易混淆</div><p><b>syncd</b>（單獨一個，負責 SAI）和 <b>*syncd</b>（portsyncd、neighsyncd 這一類，在 swss 容器）名字很像，但角色完全不同！</p></div>
 `,
   mount(root) {
+    S.diagram(root.querySelector('#d-stack'), {
+      title: 'SONiC 分層架構與資料流',
+      w: 1000, h: 530, layerGap: 100, view3d: 'iso',
+      groups: [
+        { x: 20, y: 14, w: 960, h: 112, lv: 3, kind: 'container', label: '應用與管理容器' },
+        { x: 20, y: 146, w: 960, h: 100, lv: 2, kind: 'db', label: 'Redis（database 容器）' },
+        { x: 20, y: 266, w: 960, h: 112, lv: 1, kind: 'proc', label: 'SWSS · SYNCD' },
+        { x: 20, y: 398, w: 960, h: 112, lv: 0, kind: 'hw', label: 'Linux Kernel 與交換晶片' },
+      ],
+      nodes: [
+        { id: 'bgp', x: 40, y: 44, w: 170, h: 60, lv: 3, label: 'bgp（FRR）', sub: 'bgpd · zebra', kind: 'container', info: '<p>路由協定。學到的路由經 zebra 同時送進 kernel 與 fpmsyncd。</p>' },
+        { id: 'teamd', x: 235, y: 44, w: 150, h: 60, lv: 3, label: 'teamd', sub: 'LACP', kind: 'container', info: '<p>LACP 與 PortChannel 成員狀態。</p>' },
+        { id: 'lldp', x: 410, y: 44, w: 150, h: 60, lv: 3, label: 'lldp', sub: 'lldpd · lldp_syncd', kind: 'container', info: '<p>鄰居探索，結果寫入 APPL_DB。</p>' },
+        { id: 'mgmt', x: 585, y: 44, w: 190, h: 60, lv: 3, label: '管理介面', sub: 'CLI · REST · gNMI · SNMP', kind: 'cli', info: '<p>使用者與自動化工具的入口：寫入 CONFIG_DB，讀取 STATE_DB 與 COUNTERS_DB。</p>' },
+        { id: 'pmon', x: 800, y: 44, w: 160, h: 60, lv: 3, label: 'pmon', sub: 'xcvrd · psud · thermalctld', kind: 'container', info: '<p>平台監控，把光模組、電源、風扇狀態寫入 STATE_DB。</p>' },
+        { id: 'cfg', x: 40, y: 170, w: 170, h: 56, lv: 2, label: 'CONFIG_DB', sub: '使用者設定', kind: 'db' },
+        { id: 'appl', x: 235, y: 170, w: 170, h: 56, lv: 2, label: 'APPL_DB', sub: '應用產生的期望狀態', kind: 'db' },
+        { id: 'state', x: 430, y: 170, w: 160, h: 56, lv: 2, label: 'STATE_DB', sub: '運作狀態', kind: 'db' },
+        { id: 'asicdb', x: 615, y: 170, w: 170, h: 56, lv: 2, label: 'ASIC_DB', sub: 'SAI 物件', kind: 'db' },
+        { id: 'cnt', x: 810, y: 170, w: 150, h: 56, lv: 2, label: 'COUNTERS_DB', sub: '計數器', kind: 'db' },
+        { id: 'fpm', x: 40, y: 294, w: 170, h: 60, lv: 1, label: 'fpmsyncd', sub: '路由 → APPL_DB', kind: 'proc' },
+        { id: 'mgrd', x: 235, y: 294, w: 170, h: 60, lv: 1, label: '*mgrd', sub: 'vlanmgrd · intfmgrd…', kind: 'proc', info: '<p>把 CONFIG_DB 的設定套到 kernel（建立 netdev、bridge），並寫入 APPL_DB。</p>' },
+        { id: 'orch', x: 430, y: 294, w: 200, h: 60, lv: 1, label: 'orchagent', sub: 'PortsOrch · RouteOrch …', kind: 'proc', info: '<p>讀 APPL_DB，處理相依關係後轉成 SAI 物件寫入 ASIC_DB。</p>' },
+        { id: 'syncd', x: 680, y: 294, w: 200, h: 60, lv: 1, label: 'syncd', sub: 'sairedis → libsai', kind: 'proc', info: '<p>讀 ASIC_DB，呼叫廠商 SAI；並定期讀回計數器寫入 COUNTERS_DB。</p>' },
+        { id: 'kern', x: 40, y: 426, w: 520, h: 60, lv: 0, label: 'Linux Kernel', sub: 'netdev · 路由表 · 鄰居表 · bridge · team', kind: 'kernel', info: '<p>控制平面的封包收發與 Linux 網路狀態；與 ASIC 的狀態保持一致。</p>' },
+        { id: 'asic', x: 620, y: 426, w: 320, h: 60, lv: 0, label: '交換晶片 ASIC', sub: '線速轉發', kind: 'hw' },
+      ],
+      edges: [
+        { from: 'mgmt', to: 'cfg', label: '寫入設定', id: 'c1' },
+        { from: 'cfg', to: 'mgrd', id: 'c2' },
+        { from: 'mgrd', to: 'appl', id: 'c3' },
+        { from: 'mgrd', to: 'kern', label: 'ip / bridge', id: 'c4' },
+        { from: 'bgp', to: 'fpm', label: 'FPM', id: 'r1' },
+        { from: 'bgp', to: 'kern', dash: true, label: 'zebra → kernel', id: 'r0' },
+        { from: 'fpm', to: 'appl', label: 'ROUTE_TABLE', id: 'r2' },
+        { from: 'appl', to: 'orch', id: 'o1' },
+        { from: 'orch', to: 'asicdb', label: 'SAI 物件', id: 'o2' },
+        { from: 'asicdb', to: 'syncd', id: 's1' },
+        { from: 'syncd', to: 'asic', label: 'SAI API', id: 's2' },
+        { from: 'syncd', to: 'cnt', dash: true, label: 'counters', id: 'k1' },
+        { from: 'cnt', to: 'mgmt', dash: true, id: 'k2' },
+        { from: 'pmon', to: 'state', dash: true, id: 'p1' },
+      ],
+      steps: [
+        { title: '使用者設定', text: 'CLI、REST 或 gNMI 把設定寫進 CONFIG_DB。這是所有設定的單一來源，也是 config save 儲存的內容。', nodes: ['mgmt', 'cfg'], edges: ['c1'] },
+        { title: '管理程序套用', text: '*mgrd 讀取 CONFIG_DB，在 kernel 建立對應的 netdev 或 bridge，並把結果寫入 APPL_DB。', nodes: ['cfg', 'mgrd', 'appl', 'kern'], edges: ['c2', 'c3', 'c4'] },
+        { title: '協定學到的狀態', text: 'BGP 學到的路由經 zebra 送進 kernel，同時透過 FPM 交給 fpmsyncd，寫入 APPL_DB 的 ROUTE_TABLE。', nodes: ['bgp', 'fpm', 'appl', 'kern'], edges: ['r1', 'r0', 'r2'] },
+        { title: 'orchagent 轉換', text: 'orchagent 從 APPL_DB 取得期望狀態，處理相依關係（例如 next hop 需要鄰居），轉成 SAI 物件寫入 ASIC_DB。', nodes: ['appl', 'orch', 'asicdb'], edges: ['o1', 'o2'] },
+        { title: 'syncd 寫入晶片', text: 'syncd 讀取 ASIC_DB，透過廠商的 libsai 設定交換晶片。到這一步封包才開始由硬體轉發。', nodes: ['asicdb', 'syncd', 'asic'], edges: ['s1', 's2'] },
+        { title: '狀態與計數器回報', text: 'syncd 週期讀取晶片計數器寫入 COUNTERS_DB，pmon 寫入平台狀態；CLI、SNMP、gNMI 都從這些資料庫讀取。', nodes: ['syncd', 'cnt', 'mgmt', 'pmon', 'state'], edges: ['k1', 'k2', 'p1'] },
+      ],
+    });
+
     S.diagram(root.querySelector('#d-arch'), {
       title: 'SONiC 系統架構',
       w: 1000, h: 660,
