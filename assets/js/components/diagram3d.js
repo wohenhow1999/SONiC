@@ -77,9 +77,10 @@
     const wrap = S.el('div', { class: 'v3' });
     host.appendChild(wrap);
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.shadowMap.autoUpdate = false;   // 陰影只在方塊移動時重算
     wrap.appendChild(renderer.domElement);
     const labels = new THREE.CSS2DRenderer();
     labels.domElement.className = 'v3-labels';
@@ -102,7 +103,7 @@
     const moved = e => nodes[e.from]._moved || nodes[e.to]._moved;
     sun.position.set(-W * 0.35, 900 + topLv * LG, H * 0.55);
     sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.mapSize.set(1024, 1024);
     Object.assign(sun.shadow.camera, { left: -span, right: span, top: span, bottom: -span, near: 10, far: 3000 + topLv * LG });
     sun.shadow.radius = 4;
     scene.add(sun);
@@ -173,7 +174,7 @@
       const ol = outline(shape, lineMat); ol.position.y = hgt + 0.5; grp.add(ol);
       const el = S.el('div', { class: 'v3-node' }, S.el('b', null, n.label.replace(/\n/g, ' ')), n.sub ? S.el('span', null, n.sub.replace(/\n/g, ' ')) : null);
       el.addEventListener('click', ev => { ev.stopPropagation(); hooks.onSelect && hooks.onSelect(n.id); });
-      const lab = new THREE.CSS2DObject(el);
+      const lab = new THREE.CSS2DObject(S.el('div', { class: 'v3-anchor' }, el));
       lab.position.y = hgt + 2;
       grp.add(lab);
       scene.add(grp);
@@ -241,7 +242,7 @@
         let best = 0, bl = -1;
         for (let i = 0; i < pts.length - 1; i++) { const d = pts[i].distanceTo(pts[i + 1]); if (d > bl) { bl = d; best = i; } }
         const pos = e.lx != null && !moved(e) ? P(e.lx, e.ly, Math.max(la, lb) + 9) : pts[best].clone().lerp(pts[best + 1], 0.5).add(new THREE.Vector3(0, 2, 0));
-        lab = new THREE.CSS2DObject(S.el('div', { class: 'v3-edge' }, String(e.label).replace(/\n/g, ' ')));
+        lab = new THREE.CSS2DObject(S.el('div', { class: 'v3-anchor' }, S.el('div', { class: 'v3-edge' }, String(e.label).replace(/\n/g, ' '))));
         lab.position.copy(pos);
         scene.add(lab);
       }
@@ -271,6 +272,7 @@
     function applyTheme() {
       const dark = isDark();
       theme.dark = dark;
+      theme.faint = css('--faint'); theme.bad = new THREE.Color(css('--bad'));
       theme.panel = css('--panel'); theme.text = css('--text'); theme.accent = new THREE.Color(css('--accent'));
       theme.edge = new THREE.Color(css('--faint')); theme.border = css('--border-strong');
       renderer.setClearColor(0x000000, 0);
@@ -321,7 +323,7 @@
         o.opT = !active || on ? 1 : 0.55;
         const acc = state.sel === o.n.id;
         o.body.material.color.copy(!active ? o.bodyColor : on ? o.hotColor : o.dimColor);
-        o.capMat.color.copy(!active ? o.capColor : on ? mix(o.color, theme.panel, dark ? 0.55 : 0.72) : mix(css('--faint'), theme.panel, 0.85));
+        o.capMat.color.copy(!active ? o.capColor : on ? mix(o.color, theme.panel, dark ? 0.55 : 0.72) : mix(theme.faint, theme.panel, 0.85));
         o.lineMat.color.copy(acc ? theme.accent : on && active ? new THREE.Color(o.color) : o.lineColor);
         o.body.material.emissive = on && active ? new THREE.Color(o.color).multiplyScalar(0.12) : new THREE.Color(0);
         o.el.classList.toggle('on', !!(on && active));
@@ -329,11 +331,11 @@
       });
       Object.values(edgeObjs).forEach(eo => {
         const on = hlE.has(ekey(eo.e)), dn = dnE.has(ekey(eo.e));
-        const c = dn ? new THREE.Color(css('--bad')) : on ? theme.accent : theme.edge;
+        const c = dn ? theme.bad : on ? theme.accent : theme.edge;
         const op = dn ? 0.95 : !active || on ? (on ? 1 : 0.85) : 0.18;
         eo.mat.color.copy(c); eo.mat.opacity = op;
         if (eo.line.userData.lm) { eo.line.userData.lm.color.copy(c); eo.line.userData.lm.opacity = op; }
-        if (eo.lab) { eo.lab.element.classList.toggle('bad', dn); eo.lab.element.classList.toggle('on', on); eo.lab.element.classList.toggle('dim', !!(active && !on)); }
+        if (eo.lab) { const le = eo.lab.element.firstChild; le.classList.toggle('bad', dn); le.classList.toggle('on', on); le.classList.toggle('dim', !!(active && !on)); }
       });
     }
     function setState(s) {
@@ -342,6 +344,7 @@
       clock = 0;
       state.edges.forEach((e, i) => { const eo = edgeObjs[ekey(e)]; if (eo) addPackets(eo, state.ordered ? i * 0.45 : 0); });
       paint();
+      labelsDirty = true;
       kick();
     }
 
@@ -356,22 +359,33 @@
       const [el, az] = VIEWS[view] || VIEWS.tilt;
       const e = THREE.MathUtils.degToRad(el), a = THREE.MathUtils.degToRad(az);
       const dir = new THREE.Vector3(Math.sin(a) * Math.cos(e), Math.sin(e), Math.cos(a) * Math.cos(e));
-      let d = Math.max(W, H) * 1.6;
+      // 二分搜尋：找出所有角落都在相機前方且落在畫面 92% 範圍內的最近距離（不會發散）
+      const r = bbox.getSize(new THREE.Vector3()).length() / 2 || 500;
       const tmp = camera.clone();
-      for (let i = 0; i < 6; i++) {
+      tmp.up.set(0, 1, 0);
+      if (el > 85) tmp.up.set(0, 0, -1);
+      const fits = d => {
         tmp.position.copy(center).addScaledVector(dir, d);
-        tmp.up.set(0, 1, 0);
-        if (el > 85) tmp.up.set(0, 0, -1);
         tmp.lookAt(center); tmp.updateMatrixWorld(); tmp.updateProjectionMatrix();
-        let m = 0;
-        corners.forEach(c => { const p = c.clone().project(tmp); m = Math.max(m, Math.abs(p.x), Math.abs(p.y)); });
-        d *= m / 0.9;
-      }
+        const inv = tmp.matrixWorldInverse;
+        return corners.every(c => {
+          const v = c.clone().applyMatrix4(inv);
+          if (v.z > -tmp.near) return false;            // 在相機後方或太近
+          const p = c.clone().project(tmp);
+          return Math.abs(p.x) <= 0.92 && Math.abs(p.y) <= 0.92;
+        });
+      };
+      let lo = r * 0.3, hi = r * 8;
+      if (!fits(hi)) hi = r * 20;
+      for (let i = 0; i < 24; i++) { const mid = (lo + hi) / 2; if (fits(mid)) hi = mid; else lo = mid; }
+      const d = Math.min(hi, camera.far * 0.6);
       return center.clone().addScaledVector(dir, d);
     }
     let anim = null;
     function setView(view, instant) {
       const to = camFor(view);
+      if (![to.x, to.y, to.z].every(Number.isFinite)) return;
+      curView = view;
       if (instant) { camera.position.copy(to); controls.target.copy(center); controls.update(); kick(); return; }
       anim = { from: camera.position.clone(), to, tFrom: controls.target.clone(), t: 0 };
       kick();
@@ -409,7 +423,9 @@
       ev.preventDefault();
       zoom(ev.deltaY > 0 ? 1.08 : 0.93);
     }, { passive: false });
-    controls.addEventListener('change', kick);
+    controls.addEventListener('change', () => { labelsDirty = true; scaleDirty = true; kick(); });
+    controls.addEventListener('start', () => { dragging = true; });
+    controls.addEventListener('end', () => { dragging = false; scaleDirty = true; kick(); });
 
     // ---------- 尺寸 ----------
     function resize() {
@@ -417,6 +433,7 @@
       const h = Math.round(Math.max(340, Math.min(620, w * (H / W) * 0.9 + 60)));
       wrap.style.height = h + 'px';
       renderer.setSize(w, h); labels.setSize(w, h);
+      labelsDirty = true; scaleDirty = true; shadowDirty = true;
       camera.aspect = w / h; camera.updateProjectionMatrix();
       kick();
     }
@@ -425,32 +442,62 @@
     ro.observe(wrap);
 
     // ---------- 迴圈 ----------
-    let lastPpu = 0, visible = true, raf = 0, last = 0, idle = 0, dead = false;
+    let labelsDirty = true, shadowDirty = true, scaleDirty = true, dragging = false, visible = true, raf = 0, last = 0, idle = 0, dead = false;
     const io = new IntersectionObserver(es => { visible = es[0].isIntersecting; if (visible) kick(); }, { rootMargin: '100px' });
     io.observe(wrap);
+    // 標籤依相機距離縮放：只在相機停止後更新一次（transform，不觸發重排）
+    let lastScale = 0;
+    function updateScale() {
+      const ppu = renderer.domElement.clientHeight / (2 * camera.position.distanceTo(controls.target) * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
+      const sc = Math.max(0.68, Math.min(1.2, ppu / 0.9));
+      if (Math.abs(sc - lastScale) > 0.02) { wrap.style.setProperty('--v3s', sc.toFixed(3)); lastScale = sc; }
+    }
     function kick() { idle = 0; if (!raf && !dead) { last = performance.now(); raf = requestAnimationFrame(frame); } }
+    // 效能保護：連續掉幀時關閉陰影並降低解析度
+    let ema = 16, slowFrames = 0, degraded = false, lastPaint = 0;
+    function degrade() {
+      degraded = true;
+      sun.castShadow = false;
+      renderer.shadowMap.enabled = false;
+      ground.visible = false;
+      renderer.setPixelRatio(1);
+      scene.traverse(o => { if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { m.needsUpdate = true; }); });
+      resize();
+      console.info('3D 檢視：偵測到效能不足，已關閉陰影並降低解析度');
+    }
     function frame(t) {
       raf = 0;
       if (!document.body.contains(wrap)) { dispose(); return; }
-      const dt = Math.min(0.05, (t - last) / 1000); last = t;
+      const cameraBusy = anim || dragging || labelsDirty;
+      // 只有封包在動時限制為約 30 fps
+      if (!cameraBusy && packets.length && t - lastPaint < 32) { raf = requestAnimationFrame(frame); return; }
+      // rAF 的時間戳可能早於 kick() 時的 performance.now()，時間差必須夾成非負
+      const rawDt = Math.max(0, t - last);
+      const dt = Math.min(0.05, rawDt / 1000); last = Math.max(last, t);
+      if (visible && rawDt > 0 && rawDt < 1000) {
+        ema = ema * 0.85 + rawDt * 0.15;
+        slowFrames = ema > 55 ? slowFrames + 1 : 0;
+        if (slowFrames > 12 && !degraded) degrade();
+      }
       clock += dt;
       let moving = false;
       if (anim) {
-        anim.t = Math.min(1, anim.t + dt / 0.6);
+        anim.t = Math.max(0, Math.min(1, anim.t + dt / 0.6));
         const k = 1 - Math.pow(1 - anim.t, 3);
         camera.position.lerpVectors(anim.from, anim.to, k);
         controls.target.lerpVectors(anim.tFrom, center, k);
-        if (anim.t >= 1) anim = null;
+        if (anim.t >= 1) { anim = null; scaleDirty = true; }
         moving = true;
       }
-      if (controls.update()) moving = true;
+      if (controls.update()) { moving = true; labelsDirty = true; }
+      if (moving) labelsDirty = true;
       Object.values(nodeObjs).forEach(o => {
         const dl = o.liftT - o.lift, dop = o.opT - o.op;
         if (Math.abs(dl) > 0.05 || Math.abs(dop) > 0.01) {
           o.lift += dl * Math.min(1, dt * 10); o.op += dop * Math.min(1, dt * 10);
           o.grp.position.y = o.base + o.lift;
           o.body.material.opacity = o.op; o.capMat.opacity = o.op; o.lineMat.opacity = o.op;
-          moving = true;
+          moving = true; labelsDirty = true; shadowDirty = true;
         }
       });
       packets.forEach(p => {
@@ -466,9 +513,11 @@
       });
       if (packets.length) moving = true;
       if (visible) {
-        const ppu = renderer.domElement.clientHeight / (2 * camera.position.distanceTo(controls.target) * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
-        if (Math.abs(ppu - lastPpu) > 0.004) { wrap.style.setProperty('--v3u', ppu.toFixed(3)); lastPpu = ppu; }
-        renderer.render(scene, camera); labels.render(scene, camera);
+        if (shadowDirty) { renderer.shadowMap.needsUpdate = true; shadowDirty = false; }
+        renderer.render(scene, camera);
+        lastPaint = t;
+        if (labelsDirty) { labels.render(scene, camera); labelsDirty = false; }
+        if (!anim && !dragging && scaleDirty) { updateScale(); scaleDirty = false; }
       }
       idle = moving ? 0 : idle + 1;
       if (visible && idle < 30) raf = requestAnimationFrame(frame);
@@ -497,6 +546,11 @@
     resize();
     setView(curView, true);
     inited = true;
+    // 預先編譯封包的 shader，避免第一次播放時卡頓
+    const warm = [new THREE.Mesh(pktGeo, pktMat), new THREE.Sprite(glowMat)];
+    warm.forEach(o => scene.add(o));
+    try { renderer.compile(scene, camera); } catch (e) { /* 忽略 */ }
+    warm.forEach(o => scene.remove(o));
     const api = { setState, dispose, setView, el: wrap };
     live.push(api);
     return api;
