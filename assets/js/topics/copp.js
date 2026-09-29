@@ -20,6 +20,10 @@
     meta: [["程序", ["coppmgrd", "orchagent (CoppOrch)"]], ["資料表", ["CONFIG_DB COPP_TRAP / COPP_GROUP", "APPL_DB COPP_TABLE"]], ["設定檔", ["/etc/sonic/copp_cfg.json"]], ["SAI 物件", ["HOSTIF_TRAP", "HOSTIF_TRAP_GROUP", "POLICER", "HOSTIF_TABLE_ENTRY"]]],
     tags: ['CoPP', 'trap', 'hostif', 'policer', 'coppmgrd', 'CoppOrch', 'knet'],
     html: `
+<h2>晶片內部：管線與 CPU 路徑</h2>
+<p>交換晶片內部的轉發管線立體模型。最後一步示範 CoPP：控制封包在 ACL 階段被 trap，經 CPU 佇列與 policer 送往 CPU，超量的 ARP 在晶片內就被丟棄。</p>
+<div id="s3-pipe"></div>
+
 <h2>封包路徑</h2>
 <div id="sel" style="margin-bottom:6px"></div>
 <div id="d-copp"></div>
@@ -38,6 +42,7 @@
 <div class="callout"><div class="ct">CPU 封包的注入方式</div><p>每個前面板 port 都有一個 hostif netdev（見「Port 與介面初始化」）。ASIC 把 trap 的封包經 PCIe 送到 CPU，廠商驅動（例如 Broadcom 的 knet）依照封包的來源 port，把它注入對應的 <code>Ethernet0</code> 等介面，Linux 程式就像從一般網卡收到封包一樣。反方向，程式從 Ethernet0 送出的封包也會被驅動交給 ASIC 送出。</p></div>
 `,
     mount(root) {
+      S.scenes.pipeline(root.querySelector('#s3-pipe'));
       const dg = S.diagram(root.querySelector('#d-copp'), {
         title: '封包在交換機內的路徑',
         hint: '用上方按鈕切換封包種類，或點選節點查看說明',

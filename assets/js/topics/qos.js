@@ -25,6 +25,10 @@
       'PFC watchdog 以 syncd 中的 Lua 腳本偵測佇列長時間被 PFC 暫停，觸發後丟棄或轉發該佇列流量以解除死結。',
     ],
     html: `
+<h2>晶片內部：管線與佇列</h2>
+<p>QoS 發生在交換晶片管線的哪裡：分類在前段（依 DSCP / 802.1p 決定 traffic class），排隊與排程在 MMU。第 6 步示範單一佇列壅塞、超過 WRED 門檻後丟棄。</p>
+<div id="s3-pipe"></div>
+
 <h2>處理管線</h2>
 <p>封包在 ASIC 中依下列順序被分類、緩衝與排程。每個階段都對應到一組 CONFIG_DB 表，並由 QosOrch 或 BufferOrch 轉成 SAI 物件（QOS_MAP、SCHEDULER、WRED、BUFFER_POOL、BUFFER_PROFILE）。</p>
 <div id="d-qos"></div>
@@ -79,6 +83,7 @@ pfcwd show stats
 mmuconfig -l                    <span class="c"># 列出 buffer pool / profile</span></pre>
 `,
     mount(root) {
+      S.scenes.pipeline(root.querySelector('#s3-pipe'));
       S.diagram(root.querySelector('#d-qos'), {
         title: 'QoS 管線與設定來源',
         w: 1000, h: 400,
