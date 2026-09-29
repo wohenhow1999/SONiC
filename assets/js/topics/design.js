@@ -18,6 +18,10 @@ S.register({
     '所有 fabric 都應啟用 jumbo frame、至少兩條上聯、link state tracking，並在維護前以 traffic shift 把流量導走。',
   ],
   html: `
+<h2>實體模型</h2>
+<p>資料中心機房的樣子：每個伺服器機櫃頂端是一台 leaf（ToR），後排機櫃頂端是 spine，纜線經上方走線連接。逐步播放東西向流量、ECMP 與 spine 故障。</p>
+<div id="s3-fabric"></div>
+
 <h2>Spine-leaf 拓樸</h2>
 <div id="d-clos"></div>
 
@@ -61,6 +65,7 @@ S.register({
 </tbody></table>
 `,
   mount(root) {
+    S.scenes.fabric(root.querySelector('#s3-fabric'), 'clos');
     const nodes = [], edges = [];
     ['S1', 'S2', 'S3', 'S4'].forEach((s, i) => nodes.push({ id: s, x: 170 + i * 180, y: 30, w: 120, h: 50, lv: 2, y3: 120, label: `Spine ${i + 1}`, sub: 'AS 65100', kind: 'proc', info: `<p>Spine ${i + 1}：只做 L3 轉發，所有 spine 使用相同 ASN。每台 leaf 都連到每台 spine。</p>` }));
     ['L1', 'L2', 'L3', 'L4', 'L5'].forEach((l, i) => nodes.push({ id: l, x: 40 + i * 190, y: 200, w: 150, h: 56, lv: 1, y3: 170, label: `Leaf ${i + 1}`, sub: `AS 651${String(i + 1).padStart(2, '0')} · VTEP`, kind: 'container', info: `<p>Leaf ${i + 1}：伺服器閘道（anycast gateway）、VTEP，以 eBGP 連到 4 台 spine，形成 4 路 ECMP。</p>` }));

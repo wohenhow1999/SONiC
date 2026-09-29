@@ -23,7 +23,9 @@ S.register({
   ],
   html: `
 <h2>Overlay 與 underlay</h2>
-<p>VXLAN 把二層訊框包在 UDP / IP 裡，讓 overlay 上的主機彷彿在同一個 VLAN，而 underlay 只看到 VTEP 之間的 IP 封包。切換到 3D 可以看到 overlay 平面疊在 underlay 之上。</p>
+<p>VXLAN 把二層訊框包在 UDP / IP 裡，讓 overlay 上的主機彷彿在同一個 VLAN，而 underlay 只看到 VTEP 之間的 IP 封包。下面的 3D 模型用實體機櫃與纜線表示 underlay，上方的弧形隧道表示 overlay；逐步播放可以看到訊框在 VTEP 被包進外層封包、穿過 spine、再在對端拆開。</p>
+<div id="s3-vxlan"></div>
+<p>同一件事的 2D 邏輯圖：</p>
 <div id="d-vx3"></div>
 
 <h2>元件與資料流</h2>
@@ -150,6 +152,7 @@ sonic-db-cli APPL_DB keys "VXLAN_*"
 sonic-db-cli ASIC_DB keys "*TUNNEL*"</pre>
 `,
   mount(root) {
+    S.scenes.fabric(root.querySelector('#s3-vxlan'), 'vxlan');
     S.diagram(root.querySelector('#d-vx3'), {
       title: 'VXLAN overlay 疊加在 IP underlay 之上',
       w: 1000, h: 520, layerGap: 190, view3d: 'iso',

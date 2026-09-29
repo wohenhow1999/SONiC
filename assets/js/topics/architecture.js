@@ -8,6 +8,10 @@ S.register({
   meta: [["主要容器", ["database", "swss", "syncd", "bgp", "teamd", "lldp", "pmon", "snmp", "gnmi"]], ["核心程序", ["orchagent", "syncd", "fpmsyncd", "vlanmgrd", "portsyncd"]], ["核心資料庫", ["CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB", "COUNTERS_DB"]]],
   tags: ['架構', 'orchagent', 'syncd', 'Redis', 'FRR'],
   html: `
+<h2>立體模型</h2>
+<p>把 SONiC 放進空間中看：最下層是主機板上的交換晶片、CPU 與前面板 port；其上是 Linux kernel；中央是 Redis 資料庫塔，由上而下依序是 CONFIG_DB、APPL_DB、STATE_DB、COUNTERS_DB、ASIC_DB，越往下越接近硬體；各 Docker 容器環繞在塔的周圍，程序就在容器裡。逐步播放可以看到一個設定、一個路由如何從使用者一路走到晶片。</p>
+<div id="s3-tower"></div>
+
 <h2>全系統架構圖</h2>
 <p>這是 SONiC 最常被引用的架構觀點。每一個方塊都可以點，看它是誰、在哪個容器、讀寫哪些資料。按「下一步」可以看<b>一條 BGP 學到的路由</b>如何一路寫進交換晶片。</p>
 <div id="d-arch"></div>
@@ -35,6 +39,7 @@ S.register({
 <div class="callout warn"><div class="ct">命名易混淆</div><p><b>syncd</b>（單獨一個，負責 SAI）和 <b>*syncd</b>（portsyncd、neighsyncd 這一類，在 swss 容器）名字很像，但角色完全不同！</p></div>
 `,
   mount(root) {
+    S.scenes.tower(root.querySelector('#s3-tower'));
     S.diagram(root.querySelector('#d-stack'), {
       title: 'SONiC 分層架構與資料流',
       w: 1000, h: 530, layerGap: 100, view3d: 'iso',

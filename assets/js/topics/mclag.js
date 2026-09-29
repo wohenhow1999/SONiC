@@ -24,6 +24,7 @@ S.register({
   html: `
 <h2>拓樸與流量</h2>
 <p>兩台 peer 對下游呈現為同一台 LACP 設備。逐步播放可以看到正常轉送、orphan port 的流量，以及成員鏈路失效時流量如何經 peer link 繞行。</p>
+<div id="s3-mclag"></div>
 <div id="d-mc3"></div>
 
 <h2>架構與名詞</h2>
@@ -94,6 +95,7 @@ sudo config mclag unique-ip add Vlan100
 mclagdctl dump state</pre>
 `,
   mount(root) {
+    S.scenes.fabric(root.querySelector('#s3-mclag'), 'mclag');
     const host = root.querySelector('#sim');
     const box = S.el('div', { class: 'w-box' });
     host.appendChild(box);

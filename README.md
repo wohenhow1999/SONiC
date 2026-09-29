@@ -20,7 +20,7 @@ SONiC（Software for Open Networking in the Cloud）系統架構、資料流與�
 ## 功能
 
 - 架構圖：點選元件查看職責與相關資料，或逐步播放資料流
-- 3D 檢視（three.js）：每張架構圖都可切換 3D，拖曳旋轉、縮放，逐步播放時以封包動畫顯示資料流；Clos fabric、VXLAN overlay / underlay、MCLAG 與分層架構有專屬的立體拓樸。瀏覽器不支援 WebGL 時自動使用 2D
+- 3D 模型（three.js）：只用在空間本身有意義的地方。「系統架構總覽」有 SONiC 系統立體模型（主機板與 ASIC、Linux kernel、中央的 Redis 資料庫塔與環繞的容器），「資料中心設計」「VXLAN」「MCLAG」有機櫃、ToR、spine 與纜線的實體模型；逐步播放時封包在元件間移動、相機跟著移到相關位置。瀏覽器不支援 WebGL 時顯示提示，其餘 2D 圖不受影響
 - 模擬環境：輸入 `sudo config vlan add 100`、`show ip route`、`sonic-db-cli ASIC_DB keys "*"` 等指令，即時顯示 CONFIG_DB / APPL_DB / STATE_DB / ASIC_DB 的變化與各元件的處理順序
 - 章節內的模擬：orchagent 相依性、ECMP 雜湊、LACP、MAC 學習、ACL 比對、CoPP 路徑、DSCP 分類、VXLAN 封裝與 MTU、散熱策略、計數器、reboot 中斷時間、sonic-installer
 - 可篩選的參考表：CONFIG_DB 表格、CLI 指令、檔案路徑、原始碼倉庫
@@ -98,4 +98,4 @@ S.register({
 
 ## 第三方元件
 
-`assets/vendor/three/`：[three.js](https://threejs.org/) r147（MIT License，見同目錄 LICENSE），含 OrbitControls、CSS2DRenderer、RoundedBoxGeometry。
+`assets/vendor/three/`：[three.js](https://threejs.org/) r147（MIT License，見同目錄 LICENSE），含 OrbitControls、RoundedBoxGeometry。

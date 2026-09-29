@@ -152,31 +152,8 @@
     root.appendChild(head);
     root.appendChild(canvas);
 
-    // 3D 檢視（three.js 可用時）
-    let v3 = null, v3host = null, mode = '2d';
-    const st3 = { nodes: [], edges: [], down: [], sel: null, ordered: false };
-    const sync3 = () => { if (v3) v3.setState(st3); };
-    if (S.has3d && S.has3d() && spec.view3d !== false) {
-      v3host = S.el('div', { class: 'v3-host' });
-      root.appendChild(v3host);
-      const def = window.innerWidth >= 760 ? '3d' : '2d';
-      const sw = S.el('div', { class: 'dg-view' });
-      const b3 = S.el('button', { onclick: () => setMode('3d') }, '3D');
-      const b2 = S.el('button', { onclick: () => setMode('2d') }, '2D');
-      sw.appendChild(b3); sw.appendChild(b2);
-      head.appendChild(sw);
-      const setMode = m => {
-        mode = m;
-        S.store.set('dgview', m);
-        b3.classList.toggle('on', m === '3d'); b2.classList.toggle('on', m === '2d');
-        canvas.hidden = m === '3d'; v3host.hidden = m !== '3d';
-        if (m === '3d' && !v3) {
-          try { v3 = S.view3d(v3host, spec, { onSelect: nid => selectNode(nid) }); sync3(); }
-          catch (err) { console.warn('3D 檢視無法建立', err); v3 = null; sw.remove(); v3host.remove(); canvas.hidden = false; mode = '2d'; }
-        }
-      };
-      requestAnimationFrame(() => setMode(S.store.get('dgview', def)));
-    }
+    const st3 = { nodes: [], edges: [], down: [] };
+    const sync3 = () => {};
 
     // legend
     if (spec.legend !== false) {

@@ -566,3 +566,16 @@ input[type="range"] { accent-color: var(--accent); }
 .dg svg .edge.down text { fill: var(--bad); }
 .dg svg.dimmed .edge.down { opacity: 1; }
 .v3-edge.bad { color: var(--bad); border-color: var(--bad); opacity: 1; }
+
+/* ---------- 3D 場景（scene3d） ---------- */
+.s3-stage { position: relative; width: 100%; height: 480px; overflow: hidden; border-bottom: 1px solid var(--border); contain: strict;
+  background: radial-gradient(120% 100% at 50% 0%, color-mix(in srgb, var(--accent) 7%, var(--panel)) 0%, var(--panel) 65%); }
+.s3-stage canvas { display: block; cursor: grab; touch-action: none; }
+.s3-stage canvas:active { cursor: grabbing; }
+.s3-bar { position: absolute; top: 10px; right: 10px; display: flex; gap: 4px; z-index: 2; }
+.s3-bar button { border: 1px solid var(--border-strong); background: var(--panel); color: var(--text-2); font: 500 12px var(--font);
+  padding: 3px 9px; border-radius: 5px; cursor: pointer; min-width: 28px; }
+.s3-bar button:hover { border-color: var(--text-2); color: var(--text); }
+.s3-help { position: absolute; left: 12px; bottom: 8px; font-size: 11px; color: var(--faint); pointer-events: none; }
+.s3-fallback { display: grid; place-items: center; height: 100%; color: var(--muted); font-size: 13.5px; padding: 0 20px; text-align: center; }
+@media (max-width: 640px) { .s3-help { display: none; } }
