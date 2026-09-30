@@ -167,7 +167,7 @@
       const sp = new THREE.Sprite(mat);
       sp.renderOrder = 5;
       const size = (o.size || 1.1) * (spec.labelScale || 1);
-      if (o.anchor === 'left') sp.center.set(0, 0.5); else if (o.anchor === 'center') sp.center.set(0.5, 0.5); else sp.center.set(0.5, 0);
+      if (o.anchor === 'left') sp.center.set(0, 0.5); else if (o.anchor === 'right') sp.center.set(1, 0.5); else if (o.anchor === 'center') sp.center.set(0.5, 0.5); else sp.center.set(0.5, 0);
       const draw = () => {
         const P = 40, fam = css('--font') || 'sans-serif', mono = css('--mono') || 'monospace';
         const ctx = cv.getContext('2d');

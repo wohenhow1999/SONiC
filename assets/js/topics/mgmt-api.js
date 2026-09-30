@@ -1,3 +1,38 @@
+
+// Protobuf 編碼實驗：tag 與 varint
+function pbEncoder(host) {
+  const box = S.el('div', { class: 'w-box' });
+  host.appendChild(box);
+  const P = { field: 3, value: '300', name: 'uint_val' };
+  const g = S.el('div', { class: 'grid c3' });
+  const inp = (k, label, type) => { const i = S.el('input', { type: type || 'text', value: P[k], spellcheck: 'false' }); i.addEventListener('input', () => { P[k] = i.value.trim(); draw(); }); g.appendChild(S.el('label', { class: 'field' }, label, i)); };
+  inp('field', '欄位編號（gNMI TypedValue 的 uint_val = 3）', 'number');
+  inp('value', '整數值（例如計數器）');
+  inp('name', '欄位名稱（JSON 會帶，Protobuf 不帶）');
+  box.appendChild(g);
+  const out = S.el('div', { style: 'margin-top:12px' });
+  box.appendChild(out);
+  const hex = n => n.toString(16).padStart(2, '0');
+  const varint = v => { const b = []; do { let x = Number(v & 0x7fn); v >>= 7n; if (v > 0n) x |= 0x80; b.push(x); } while (v > 0n); return b; };
+  function draw() {
+    let v, f = parseInt(P.field, 10);
+    try { v = BigInt(P.value); } catch (e) { v = -1n; }
+    if (!(f >= 1 && f <= 536870911) || v < 0n || v > 18446744073709551615n) { out.innerHTML = '<div class="log">請輸入 1 以上的欄位編號，以及 0 到 2^64−1 之間的整數。</div>'; return; }
+    const tag = varint(BigInt(f) << 3n);   // wire type 0 = varint
+    const val = varint(v);
+    const json = JSON.stringify({ [P.name || 'value']: Number(v) <= Number.MAX_SAFE_INTEGER ? Number(v) : String(v) });
+    const bits = val.map(b => { const s = b.toString(2).padStart(8, '0'); return `<code><b>${s[0]}</b>${s.slice(1)}</code>`; }).join(' ');
+    out.innerHTML = `<div class="pipe">
+        <div><div class="pl">tag</div><div class="pv mono">${tag.map(hex).join(' ')}</div><div class="ps">(${f} &lt;&lt; 3) | 0（varint）</div></div>
+        <div><div class="pl">值（varint）</div><div class="pv mono">${val.map(hex).join(' ')}</div><div class="ps">${val.length} byte</div></div>
+        <div><div class="pl">Protobuf 合計</div><div class="pv">${tag.length + val.length} bytes</div></div>
+        <div><div class="pl">同內容的 JSON</div><div class="pv">${json.length} bytes</div><div class="ps mono">${S.esc(json)}</div></div></div>
+      <div class="log"><div>varint 的每個 byte（粗體是「後面還有」位元，其餘 7 bit 由低位到高位存放數值）：${bits}</div>
+      <div>值 ${v} 需要 ${val.length} 個 byte；Protobuf 共 ${tag.length + val.length} bytes，約為 JSON 的 ${Math.round((tag.length + val.length) / json.length * 100)}%。欄位名稱只存在兩端的 .proto 定義裡，不在網路上傳送。</div></div>`;
+  }
+  draw();
+}
+
 S.register({
   id: 'mgmt-api',
   category: 'ops',
@@ -23,6 +58,70 @@ S.register({
 <h2>gNMI 與 TLS 立體模型</h2>
 <p>把一次 gNMI 連線從頭到尾放進空間裡看：CA 如何簽發憑證、TLS 握手時雙方如何互相驗證、加密通道如何建立，以及 Subscribe、Set 在通道內如何運作。最後一步說明攻擊者為什麼無法竊聽或冒充。</p>
 <div id="s3-gnmi"></div>
+
+<h2>協定脈絡：YANG、gNMI、gRPC、Protobuf、HTTP/2</h2>
+<p>gNMI 不是單獨一個協定，而是疊在幾個通用技術上的一層。每一層只負責一件事，從上到下依序是：</p>
+<table>
+<thead><tr><th>層</th><th>負責什麼</th><th>在 gNMI 裡的例子</th><th>白話比喻</th></tr></thead>
+<tbody>
+<tr><td>YANG / OpenConfig</td><td>資料模型：有哪些路徑、欄位、型別</td><td><code>/interfaces/interface[name=Eth1/1]/state/counters</code></td><td>菜單：規定可以點哪些菜、每道菜叫什麼</td></tr>
+<tr><td>gNMI</td><td>操作語意：Capabilities、Get、Set、Subscribe</td><td>SubscribeRequest，mode = SAMPLE，10 秒</td><td>點餐單：我要點什麼、要多久上一次</td></tr>
+<tr><td>Protobuf</td><td>編碼：把訊息變成位元組</td><td>欄位編號 + 型別 + 值，例如 <code>18 ac 02</code> 代表 uint_val = 300</td><td>把點餐單寫成廚房看得懂的代碼簡寫</td></tr>
+<tr><td>gRPC</td><td>遠端呼叫：呼叫哪個方法、結果如何</td><td><code>/gnmi.gNMI/Subscribe</code>、<code>grpc-status: 7</code></td><td>電話總機：轉到正確分機，最後告訴你辦成了沒</td></tr>
+<tr><td>HTTP/2</td><td>傳輸：stream、frame、多工、流量控制</td><td>Subscribe 在 stream 1，Get 在 stream 3，同時進行</td><td>同一條高速公路上有很多車道，車子可以並行</td></tr>
+<tr><td>TLS 1.3</td><td>加密與身分驗證</td><td>憑證、mTLS、ALPN 協商 <code>h2</code></td><td>運鈔車</td></tr>
+<tr><td>TCP</td><td>可靠、依序的傳輸</td><td>TCP 8080（Enterprise）/ 50051（社群常見）</td><td>掛號郵件：保證送達、依序、不遺失</td></tr>
+</tbody></table>
+<p><b>歷史脈絡：</b>Google 內部長年使用一套叫 Stubby 的 RPC 系統與 Protocol Buffers（2008 年開源），2015 年以 HTTP/2 為基礎重新設計並開源成 gRPC，同年 HTTP/2 成為標準（RFC 7540，現為 RFC 9113）。營運商在管理大量網路設備時，受夠了 SNMP 輪詢與「抓 CLI 畫面再解析」的做法，於是 OpenConfig 工作小組定義了廠商中立的 YANG 模型，並在 gRPC 之上定義了 gNMI，用來取代這些舊方法。SONiC 也採用了這一整套組合。</p>
+
+<h3>3D 模型：一則訊息穿過每一層</h3>
+<div id="s3-grpc"></div>
+
+<h3>gNMI 的服務定義</h3>
+<p>gNMI 本身就是一份 Protobuf 檔（gnmi.proto）。其中的 service 區塊定義了四個方法；gRPC 依這份定義自動產生各種程式語言的用戶端與伺服器程式碼：</p>
+<pre>service gNMI {
+  rpc Capabilities(CapabilityRequest) returns (CapabilityResponse);
+  rpc Get(GetRequest) returns (GetResponse);
+  rpc Set(SetRequest) returns (SetResponse);
+  rpc Subscribe(stream SubscribeRequest) returns (stream SubscribeResponse);
+}</pre>
+<table>
+<thead><tr><th>gRPC 呼叫類型</th><th>說明</th><th>gNMI 的方法</th></tr></thead>
+<tbody>
+<tr><td>Unary</td><td>送一則請求、收一則回應</td><td>Capabilities、Get、Set</td></tr>
+<tr><td>Server streaming</td><td>送一則請求、持續收到多則回應</td><td>—</td></tr>
+<tr><td>Client streaming</td><td>持續送出多則請求、最後收一則回應</td><td>—</td></tr>
+<tr><td>Bidirectional streaming</td><td>兩端都可以隨時送出訊息</td><td>Subscribe：用戶端可再送 Poll 請求，伺服器持續推送更新</td></tr>
+</tbody></table>
+
+<h3>Protobuf 編碼實驗</h3>
+<p>Protobuf 不傳欄位名稱，只傳「欄位編號 + 型別」組成的 tag，再接上值。整數用 varint 編碼：每個 byte 用 7 bit 存數值、最高位元表示「後面還有」。所以小的數值只要 1 byte，計數器這類大數值也只多幾個 byte。調整下面的數值，看它實際被編成哪些位元組。</p>
+<div id="pbenc"></div>
+
+<h3>HTTP/1.1 與 HTTP/2</h3>
+<table>
+<thead><tr><th>項目</th><th>HTTP/1.1（REST 常見）</th><th>HTTP/2（gRPC）</th></tr></thead>
+<tbody>
+<tr><td>格式</td><td>文字</td><td>二進位 frame（HEADERS、DATA、SETTINGS、PING、WINDOW_UPDATE…）</td></tr>
+<tr><td>同時多個請求</td><td>一條連線同一時間只處理一個請求，要並行就得開多條連線</td><td>一條連線上多個 stream 交錯傳送（多工）</td></tr>
+<tr><td>標頭</td><td>每次完整重送</td><td>HPACK 壓縮，重複的欄位只送索引</td></tr>
+<tr><td>長時間串流</td><td>不自然，需要輪詢或另外的機制</td><td>stream 可以一直開著，伺服器持續推送</td></tr>
+<tr><td>連線存活</td><td>—</td><td>PING frame；gRPC 用它做 keepalive，偵測斷線</td></tr>
+</tbody></table>
+
+<h3>gRPC 狀態碼</h3>
+<table>
+<thead><tr><th>grpc-status</th><th>名稱</th><th>在 gNMI 常見的原因</th></tr></thead>
+<tbody>
+<tr><td>0</td><td>OK</td><td>成功</td></tr>
+<tr><td>3</td><td>INVALID_ARGUMENT</td><td>路徑不存在、值的型別錯誤、取樣間隔小於 min-sample-interval</td></tr>
+<tr><td>4</td><td>DEADLINE_EXCEEDED</td><td>用戶端設的逾時時間內沒有完成（例如 Get 大量資料）</td></tr>
+<tr><td>7</td><td>PERMISSION_DENIED</td><td>RBAC：這個使用者的角色不允許此操作</td></tr>
+<tr><td>12</td><td>UNIMPLEMENTED</td><td>伺服器不支援這個方法、編碼或訂閱模式</td></tr>
+<tr><td>14</td><td>UNAVAILABLE</td><td>連不上、伺服器重啟、TLS 握手失敗後重試</td></tr>
+<tr><td>16</td><td>UNAUTHENTICATED</td><td>沒有或無效的帳密、JWT、client 憑證</td></tr>
+</tbody></table>
+<p class="muted">報告 demo 小技巧：Wireshark 可以依序解析 TLS → HTTP/2 → gRPC → Protobuf。gNMI 走 TLS，需要讓用戶端把會談金鑰寫到 <code>SSLKEYLOGFILE</code>，再在 Wireshark 載入，並在 Protobuf 設定中加入 gnmi.proto，就能看到每則訊息的欄位。</p>
 
 <h2>用白話說 gNMI</h2>
 <p><b>一句話：</b>gNMI 是讓程式「訂閱」交換機的狀態、並且能安全地修改設定的標準介面。它跑在 gRPC（HTTP/2）上，資料格式用 Protobuf，欄位名稱依照 YANG / OpenConfig 模型，所以不同廠牌的設備可以用同一套路徑。</p>
@@ -58,6 +157,7 @@ S.register({
 <ol>
 <li><b>為什麼需要 gNMI</b>：SNMP 輪詢的限制（看不到尖峰、耗 CPU、UDP、各廠 MIB 不一）對比串流遙測（情境 1、2）。</li>
 <li><b>gNMI 是什麼</b>：四個 RPC——Capabilities、Get、Set、Subscribe；Subscribe 的 ONCE / POLL / STREAM（SAMPLE、ON_CHANGE），可用本章的 Subscribe 時間軸示範。</li>
+<li><b>底下的技術</b>：YANG → gNMI → Protobuf → gRPC → HTTP/2 → TLS → TCP 的脈絡（協定堆疊 3D 模型、Protobuf 編碼實驗、HTTP/1.1 與 HTTP/2 對照）。</li>
 <li><b>SONiC 內部怎麼做</b>：gnmi 容器 → translib → Redis（CONFIG_DB / STATE_DB / COUNTERS_DB），與 REST、CLI 共用同一套 YANG（本章架構圖、3D 模型第 7–9 步）。</li>
 <li><b>安全</b>：憑證與 CA、TLS 握手、mTLS、RBAC、JWT（3D 模型第 2–6 步與第 10 步，搭配上面的白話比喻）。</li>
 <li><b>Demo</b>：gnmic capabilities → get → subscribe（見下方實驗指令）。</li>
@@ -70,6 +170,8 @@ S.register({
 <tbody>
 <tr><td>gNMI 和 REST / RESTCONF 差在哪？</td><td>在 SONiC 裡兩者共用同一套 YANG 模型與 translib，讀寫結果一致。REST 是一問一答；gNMI 可以長時間串流，且 HTTP/2 加 Protobuf 效率較好，適合遙測。</td></tr>
 <tr><td>為什麼不繼續用 SNMP？</td><td>SNMP 以輪詢為主、走 UDP、v2c 是明文、各廠 MIB 不一致；gNMI 是推送、走 TCP 加 TLS、以 OpenConfig 統一資料模型。SNMP 仍可並存，逐步移轉。</td></tr>
+<tr><td>為什麼選 gRPC 與 HTTP/2，而不是 REST？</td><td>遙測需要長時間、雙向、高頻的串流：HTTP/2 的多工與長連線讓一條連線同時跑多個訂閱；Protobuf 比 JSON 小、解析快；gRPC 由 .proto 自動產生各語言的程式碼，介面有嚴格型別。REST 仍適合一次性的設定與查詢。</td></tr>
+<tr><td>Protobuf 看不懂，除錯怎麼辦？</td><td>gnmic 等工具會把回應轉成 JSON 顯示；Wireshark 搭配 SSLKEYLOGFILE 與 gnmi.proto 可以逐欄位解析；gNMI 的值本身也可以選 JSON_IETF 編碼。</td></tr>
 <tr><td>要開哪個 port？</td><td>Enterprise SONiC 預設 TCP 8080（<code>ip telemetry port</code> 可改），社群版常見 50051。建議只在管理 VRF 開放，並以 ACL 限制來源 IP。</td></tr>
 <tr><td>憑證上的名稱要填什麼？</td><td>伺服器憑證的 SAN 要包含收集器連線時用的名稱或 IP，否則會出現名稱不符；client 憑證的 CN 填交換機上的使用者名稱。</td></tr>
 <tr><td>會不會拖垮交換機？</td><td>取樣間隔有下限（min-sample-interval，預設 15 秒，許多路徑為 20 秒）；狀態類資料用 ON_CHANGE，只在變化時送出；大量高頻計數器建議直接以 COUNTERS_DB 路徑訂閱。</td></tr>
@@ -195,6 +297,8 @@ sudo systemctl restart gnmi</pre>
 `,
   mount(root) {
     S.scenes.gnmi(root.querySelector('#s3-gnmi'));
+    S.scenes.grpc(root.querySelector('#s3-grpc'));
+    pbEncoder(root.querySelector('#pbenc'));
     S.diagram(root.querySelector('#d-api'), {
       title: '北向介面到資料庫的路徑',
       w: 1000, h: 400,

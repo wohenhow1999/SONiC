@@ -20,7 +20,7 @@ SONiC（Software for Open Networking in the Cloud）系統架構、資料流與�
 ## 功能
 
 - 架構圖：點選元件查看職責與相關資料，或逐步播放資料流
-- 3D 模型（three.js）：只用在空間本身有意義的地方。「系統架構總覽」有 SONiC 系統立體模型（主機板與 ASIC、Linux kernel、中央的 Redis 資料庫塔與環繞的容器），「資料中心設計」「VXLAN」「MCLAG」有機櫃、ToR、spine 與纜線的實體模型；「STP」以高度表示到 root 的路徑成本（生成樹吊掛在 root 下方、阻斷埠與重新收斂），「Multicast」有從來源往下的分送樹（IGMP、PIM 共享樹、分岔複製、IGMP snooping、SPT 切換）；「REST、RESTCONF 與 gNMI」有 gNMI 與 TLS 的模型（CA 簽發憑證、TLS 握手與 mTLS、加密通道、Subscribe / Set、竊聽與冒充），並附白話比喻、實際情境、報告架構、實驗指令與常見錯誤；「CoPP」「QoS」有交換晶片內部轉發管線的模型（Parser、FDB、LPM / ECMP、ACL TCAM、MMU 佇列、Egress 改寫，以及 CPU 佇列與 policer）；逐步播放時封包在元件間移動、相機跟著移到相關位置。瀏覽器不支援 WebGL 時顯示提示，其餘 2D 圖不受影響
+- 3D 模型（three.js）：只用在空間本身有意義的地方。「系統架構總覽」有 SONiC 系統立體模型（主機板與 ASIC、Linux kernel、中央的 Redis 資料庫塔與環繞的容器），「資料中心設計」「VXLAN」「MCLAG」有機櫃、ToR、spine 與纜線的實體模型；「STP」以高度表示到 root 的路徑成本（生成樹吊掛在 root 下方、阻斷埠與重新收斂），「Multicast」有從來源往下的分送樹（IGMP、PIM 共享樹、分岔複製、IGMP snooping、SPT 切換）；「REST、RESTCONF 與 gNMI」有 gNMI 與 TLS 的模型（CA 簽發憑證、TLS 握手與 mTLS、加密通道、Subscribe / Set、竊聽與冒充），以及 gNMI 協定堆疊的模型（訊息逐層經過 Protobuf、gRPC、HTTP/2、TLS，HTTP/2 多工與 gRPC 狀態碼）與 Protobuf 編碼實驗，並附白話比喻、實際情境、報告架構、實驗指令與常見錯誤；「CoPP」「QoS」有交換晶片內部轉發管線的模型（Parser、FDB、LPM / ECMP、ACL TCAM、MMU 佇列、Egress 改寫，以及 CPU 佇列與 policer）；逐步播放時封包在元件間移動、相機跟著移到相關位置。瀏覽器不支援 WebGL 時顯示提示，其餘 2D 圖不受影響
 - 模擬環境：輸入 `sudo config vlan add 100`、`show ip route`、`sonic-db-cli ASIC_DB keys "*"` 等指令，即時顯示 CONFIG_DB / APPL_DB / STATE_DB / ASIC_DB 的變化與各元件的處理順序
 - 章節內的模擬：orchagent 相依性、ECMP 雜湊、LACP、MAC 學習、ACL 比對、CoPP 路徑、DSCP 分類、VXLAN 封裝與 MTU、散熱策略、計數器、reboot 中斷時間、sonic-installer
 - 可篩選的參考表：CONFIG_DB 表格、CLI 指令、檔案路徑、原始碼倉庫
