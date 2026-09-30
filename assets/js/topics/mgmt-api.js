@@ -20,6 +20,63 @@ S.register({
     'Enterprise SONiC 對 SAMPLE 間隔有下限（min-sample-interval，預設 15 秒，許多路徑為 20 秒），太短的要求會被拒絕。',
   ],
   html: `
+<h2>gNMI 與 TLS 立體模型</h2>
+<p>把一次 gNMI 連線從頭到尾放進空間裡看：CA 如何簽發憑證、TLS 握手時雙方如何互相驗證、加密通道如何建立，以及 Subscribe、Set 在通道內如何運作。最後一步說明攻擊者為什麼無法竊聽或冒充。</p>
+<div id="s3-gnmi"></div>
+
+<h2>用白話說 gNMI</h2>
+<p><b>一句話：</b>gNMI 是讓程式「訂閱」交換機的狀態、並且能安全地修改設定的標準介面。它跑在 gRPC（HTTP/2）上，資料格式用 Protobuf，欄位名稱依照 YANG / OpenConfig 模型，所以不同廠牌的設備可以用同一套路徑。</p>
+<table>
+<thead><tr><th>技術名詞</th><th>白話比喻</th></tr></thead>
+<tbody>
+<tr><td>SNMP 輪詢</td><td>每 5 分鐘打一次電話問「現在幾度？」。兩通電話之間發生的事，你都不知道。</td></tr>
+<tr><td>Subscribe · SAMPLE</td><td>訂閱天氣推播：設定好「每 10 秒通知我一次」，之後自動送來，不用一直問。</td></tr>
+<tr><td>Subscribe · ON_CHANGE</td><td>保全系統：門一被打開就立刻通知，沒事就不吵你。</td></tr>
+<tr><td>Set</td><td>用正式公文改設定：先查你有沒有權限，整份公文全部生效或全部不生效，不會改一半。</td></tr>
+<tr><td>YANG / OpenConfig</td><td>大家約定好的表格格式：各家設備的「介面流量」都叫同一個欄位名稱，程式不用為每個廠牌各寫一套。</td></tr>
+<tr><td>TLS 加密通道</td><td>運鈔車：路上的人看得到車子開過去，但看不到車裡裝了什麼，也沒辦法偷換。</td></tr>
+<tr><td>憑證</td><td>身分證：寫著名字（sw1.example.com）、照片（公鑰）、有效期限，還有發證機關的鋼印。可以公開給任何人看。</td></tr>
+<tr><td>CA</td><td>戶政事務所：負責發身分證；大家都信任它的鋼印，所以認得它發的證件。</td></tr>
+<tr><td>trust store</td><td>「我只認這幾個機關發的證件」的清單。清單外的機關發的證件一律不收。</td></tr>
+<tr><td>私鑰</td><td>本人的印章：只有本人持有，從不交出去。能用它蓋章，就證明你是證件上的那個人。</td></tr>
+<tr><td>mTLS（雙向驗證）</td><td>銀行櫃台：行員核對你的身分證，你也確認這是真的銀行，不是假冒的。</td></tr>
+<tr><td>JWT</td><td>遊樂園手環：入口驗過一次票，之後一小時內憑手環進出，不用每次都掏票。</td></tr>
+<tr><td>min-sample-interval</td><td>店家規定「最多每 15 秒回答一次」，避免有人把交換機的 CPU 問到滿載。</td></tr>
+</tbody></table>
+
+<h2>實際情境</h2>
+<div class="grid c2">
+<div class="card"><b>1. 監控大螢幕：500 台交換機的即時流量</b><p class="muted" style="font-size:13.5px;margin:6px 0 0">以前用 SNMP 每 5 分鐘輪詢一次，短暫的流量尖峰完全看不到，而且輪詢本身就消耗大量 CPU。改用 gNMI：Telegraf 對每台交換機訂閱 <code>/interfaces/interface/state/counters</code>、SAMPLE 每 10 秒，資料寫進 InfluxDB，再由 Grafana 畫圖。交換機主動推送，收集端只要等資料進來。</p></div>
+<div class="card"><b>2. 鏈路斷線，一秒內告警</b><p class="muted" style="font-size:13.5px;margin:6px 0 0">對 <code>oper-status</code> 訂閱 ON_CHANGE：port 一斷，STATE_DB 改變，gNMI 立刻推送。SNMP trap 走 UDP，封包遺失就漏掉告警；gNMI 走 TCP，而且連線剛建立時會先送一次完整的目前狀態（sync_response），重連後也不會漏掉。</p></div>
+<div class="card"><b>3. 夜間批次修改設定</b><p class="muted" style="font-size:13.5px;margin:6px 0 0">自動化平台要把 200 台交換機的上聯 MTU 改成 9100。對每台送一個 SetRequest，同一個請求內的多筆變更全有或全無；失敗會回傳明確的錯誤碼（例如 PermissionDenied、InvalidArgument），平台可以記錄後重試或回滾。建議先挑一台驗證，再分批推出。</p></div>
+<div class="card"><b>4. 憑證過期，監控全部中斷</b><p class="muted" style="font-size:13.5px;margin:6px 0 0">最常見的真實事故：一年前裝的伺服器憑證到期，所有收集器在重連時 TLS 握手失敗，監控畫面一夕全黑。預防方式：SONiC 會在到期前 30 天、14 天送 syslog 告警，要把這些告警接進監控系統；以 <code>crypto cert verify NAME expiry</code> 定期檢查；最好用自動化流程在到期前換發。</p></div>
+<div class="card"><b>5. 權限分離：監控帳號只能讀</b><p class="muted" style="font-size:13.5px;margin:6px 0 0">監控用的收集器發一張 CN = <code>telemetry-ro</code> 的 client 憑證，交換機上這個使用者只給 operator 角色。就算收集器被入侵，攻擊者拿這張憑證送 SetRequest 也會被拒絕（PermissionDenied）；要改設定的自動化平台才用有寫入權限的帳號。</p></div>
+<div class="card"><b>6. 資安稽核：「管理流量有沒有加密？」</b><p class="muted" style="font-size:13.5px;margin:6px 0 0">可以這樣回答：gNMI 使用 TLS 1.3 加密、以企業 CA 簽發的憑證做雙向驗證（mTLS），使用者依憑證對應到 RBAC 角色；服務只在管理 VRF 開放，並以 ACL 限制來源；不允許 insecure / skip-verify 模式連線。</p></div>
+</div>
+
+<h2>報告架構建議</h2>
+<ol>
+<li><b>為什麼需要 gNMI</b>：SNMP 輪詢的限制（看不到尖峰、耗 CPU、UDP、各廠 MIB 不一）對比串流遙測（情境 1、2）。</li>
+<li><b>gNMI 是什麼</b>：四個 RPC——Capabilities、Get、Set、Subscribe；Subscribe 的 ONCE / POLL / STREAM（SAMPLE、ON_CHANGE），可用本章的 Subscribe 時間軸示範。</li>
+<li><b>SONiC 內部怎麼做</b>：gnmi 容器 → translib → Redis（CONFIG_DB / STATE_DB / COUNTERS_DB），與 REST、CLI 共用同一套 YANG（本章架構圖、3D 模型第 7–9 步）。</li>
+<li><b>安全</b>：憑證與 CA、TLS 握手、mTLS、RBAC、JWT（3D 模型第 2–6 步與第 10 步，搭配上面的白話比喻）。</li>
+<li><b>Demo</b>：gnmic capabilities → get → subscribe（見下方實驗指令）。</li>
+<li><b>維運重點</b>：憑證生命週期與到期告警、min-sample-interval、管理 VRF 與 ACL、常見錯誤訊息。</li>
+</ol>
+
+<h2>報告時的常見問題</h2>
+<table>
+<thead><tr><th>問題</th><th>回答要點</th></tr></thead>
+<tbody>
+<tr><td>gNMI 和 REST / RESTCONF 差在哪？</td><td>在 SONiC 裡兩者共用同一套 YANG 模型與 translib，讀寫結果一致。REST 是一問一答；gNMI 可以長時間串流，且 HTTP/2 加 Protobuf 效率較好，適合遙測。</td></tr>
+<tr><td>為什麼不繼續用 SNMP？</td><td>SNMP 以輪詢為主、走 UDP、v2c 是明文、各廠 MIB 不一致；gNMI 是推送、走 TCP 加 TLS、以 OpenConfig 統一資料模型。SNMP 仍可並存，逐步移轉。</td></tr>
+<tr><td>要開哪個 port？</td><td>Enterprise SONiC 預設 TCP 8080（<code>ip telemetry port</code> 可改），社群版常見 50051。建議只在管理 VRF 開放，並以 ACL 限制來源 IP。</td></tr>
+<tr><td>憑證上的名稱要填什麼？</td><td>伺服器憑證的 SAN 要包含收集器連線時用的名稱或 IP，否則會出現名稱不符；client 憑證的 CN 填交換機上的使用者名稱。</td></tr>
+<tr><td>會不會拖垮交換機？</td><td>取樣間隔有下限（min-sample-interval，預設 15 秒，許多路徑為 20 秒）；狀態類資料用 ON_CHANGE，只在變化時送出；大量高頻計數器建議直接以 COUNTERS_DB 路徑訂閱。</td></tr>
+<tr><td>憑證過期會怎樣？</td><td>新連線與重連一律 TLS 握手失敗，收集器看到 certificate has expired。已建立的連線不會立刻中斷，但任何斷線重連都會失敗，所以常在維護或重開機後才爆發。</td></tr>
+<tr><td>密碼、JWT、憑證要選哪一種？</td><td>手動測試用密碼；自動化程式用 JWT 或 client 憑證。長期運作的收集器建議用 client 憑證（mTLS），不用在程式裡保存密碼，也能以 CN 精準對應權限。</td></tr>
+</tbody></table>
+
 <h2>架構</h2>
 <div id="d-api"></div>
 
@@ -63,6 +120,60 @@ S.register({
 <h2>範例</h2>
 <div id="ex"></div>
 
+<h2>實驗：從零建立 CA 並以 mTLS 連線</h2>
+<p>以下用 OpenSSL 在實驗環境建立一個 CA，簽發交換機與收集器的憑證，再以 gnmic 連線。正式環境建議改由交換機自行產生金鑰與 CSR（<code>crypto cert generate request</code>），私鑰不離開交換機。</p>
+<pre><span class="c"># 1. 建立實驗用 CA</span>
+openssl req -x509 -newkey rsa:3072 -nodes -keyout ca.key -out ca.crt -days 3650 -subj "/CN=Corp Root CA"
+
+<span class="c"># 2. 交換機的金鑰與憑證：SAN 必須包含收集器連線用的名稱與 IP</span>
+openssl req -newkey rsa:2048 -nodes -keyout sw1.key -out sw1.csr \\
+  -subj "/CN=sw1.example.com" -addext "subjectAltName=DNS:sw1.example.com,IP:10.0.0.1"
+openssl x509 -req -in sw1.csr -CA ca.crt -CAkey ca.key -CAcreateserial \\
+  -out sw1.crt -days 365 -copy_extensions copy        <span class="c"># OpenSSL 3.0 以上</span>
+
+<span class="c"># 3. 收集器的 client 憑證：CN = 交換機上的使用者名稱</span>
+openssl req -newkey rsa:2048 -nodes -keyout admin.key -out admin.csr -subj "/CN=admin"
+openssl x509 -req -in admin.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out admin.crt -days 365
+
+<span class="c"># 4. 在 Enterprise SONiC 上安裝（先把 sw1.crt、sw1.key、ca.crt 複製到 home 目錄）</span>
+sonic# crypto cert install cert-file home://sw1.crt key-file home://sw1.key
+sonic# crypto ca-cert install home://ca.crt
+sonic# configure terminal
+sonic(config)# crypto trust-store corp ca-cert ca
+sonic(config)# crypto security-profile gnmi
+sonic(config)# crypto security-profile certificate gnmi sw1
+sonic(config)# crypto security-profile trust-store gnmi corp
+sonic(config)# ip telemetry security-profile gnmi
+sonic(config)# ip telemetry authentication password,jwt,cert
+sonic# show ip telemetry
+sonic# show crypto security-profile
+
+<span class="c"># 5. 先確認 TLS 握手（看到 Verify return code: 0 (ok) 即代表憑證鏈正確）</span>
+openssl s_client -connect sw1.example.com:8080 -CAfile ca.crt -cert admin.crt -key admin.key &lt;/dev/null
+
+<span class="c"># 6. 以 gnmic 連線</span>
+G="gnmic -a sw1.example.com:8080 --tls-ca ca.crt --tls-cert admin.crt --tls-key admin.key"
+$G capabilities
+$G get --path /openconfig-system:system/state
+$G subscribe --path "/openconfig-interfaces:interfaces/interface[name=Eth1/1]/state/counters" \\
+   --stream-mode sample --sample-interval 20s
+$G subscribe --path "/openconfig-interfaces:interfaces/interface[name=Eth1/1]/state/oper-status" \\
+   --stream-mode on_change</pre>
+
+<h2>常見錯誤訊息</h2>
+<table>
+<thead><tr><th>錯誤訊息（收集器端）</th><th>原因</th><th>處理</th></tr></thead>
+<tbody>
+<tr><td><code>x509: certificate signed by unknown authority</code></td><td>收集器不信任簽發交換機憑證的 CA</td><td>確認 <code>--tls-ca</code> 指向正確的 CA；中繼 CA 要一併提供</td></tr>
+<tr><td><code>x509: certificate is valid for X, not Y</code></td><td>連線用的名稱不在憑證的 SAN 內</td><td>改用憑證上的名稱連線，或重新簽發包含該名稱 / IP 的憑證</td></tr>
+<tr><td><code>certificate has expired or is not yet valid</code></td><td>憑證過期，或交換機 / 收集器時間錯誤</td><td>換發憑證；檢查兩端的 NTP</td></tr>
+<tr><td><code>tls: bad certificate</code>、握手被對方中止</td><td>交換機不接受 client 憑證：不是 trust store 的 CA 簽的，或未啟用 cert 認證</td><td>檢查 <code>crypto security-profile trust-store</code> 與 <code>ip telemetry authentication</code></td></tr>
+<tr><td><code>rpc error: code = Unauthenticated</code></td><td>沒有提供或無效的帳密、JWT 過期、CN 對應不到使用者</td><td>確認使用者存在，JWT 在有效期內</td></tr>
+<tr><td><code>rpc error: code = PermissionDenied</code></td><td>使用者的角色沒有該操作權限（例如 operator 送 Set）</td><td>調整角色，或改用有權限的帳號</td></tr>
+<tr><td><code>InvalidArgument</code>（sample interval）</td><td>取樣間隔小於 min-sample-interval</td><td>加大 sample-interval，或調整 <code>ip telemetry min-sample-interval</code></td></tr>
+<tr><td>連線逾時</td><td>port、VRF 或 ACL 不對</td><td>確認 <code>ip telemetry port</code>、<code>ip telemetry vrf</code> 與管理 ACL</td></tr>
+</tbody></table>
+
 <h2>設定</h2>
 <pre><span class="c"># Enterprise SONiC</span>
 sonic(config)# ip rest port 443
@@ -83,6 +194,7 @@ sonic-db-cli CONFIG_DB hset "RESTAPI|config" client_auth password,jwt
 sudo systemctl restart gnmi</pre>
 `,
   mount(root) {
+    S.scenes.gnmi(root.querySelector('#s3-gnmi'));
     S.diagram(root.querySelector('#d-api'), {
       title: '北向介面到資料庫的路徑',
       w: 1000, h: 400,
@@ -253,6 +365,6 @@ gnmic -a 10.0.0.1:50051 -u admin -p ****** --skip-verify --target COUNTERS_DB su
     ]);
   },
   searchText: 'restconf yang-data+json yang-patch authenticate refresh Bearer token gnmic gnmi_get gnmi_set gnmi_cli gnoi_client Capabilities Get Set Subscribe sync_response heartbeat suppress_redundant sample_interval min-sample-interval dialout TELEMETRY_CLIENT ip rest ip telemetry',
-  related: ['mgmt-framework', 'pki', 'aaa', 'counters', 'redis-db'],
+  related: ['pki', 'mgmt-framework', 'aaa', 'counters', 'redis-db'],
   refs: [['RFC 8040 RESTCONF', 'https://www.rfc-editor.org/rfc/rfc8040'], ['RFC 8072 YANG Patch', 'https://www.rfc-editor.org/rfc/rfc8072'], ['gNMI 規格', 'https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-specification.md'], ['sonic-gnmi', 'https://github.com/sonic-net/sonic-gnmi'], ['Enterprise SONiC User Guide UG460：Ch.21–23', 'https://www.broadcom.com/products/ethernet-connectivity/software/enterprise-sonic']],
 });
