@@ -20,6 +20,10 @@ S.register({
     'RPF 檢查確保 multicast 封包從「往來源方向」的介面進來，否則丟棄以避免迴圈。',
   ],
   html: `
+<h2>立體模型</h2>
+<p>高度代表離來源的遠近：來源在最上方，資料沿分送樹往下流向接收端，在分岔的路由器與交換機上才複製。逐步播放 IGMP 加入、PIM 建立共享樹、IGMP snooping 的效果、切換到最短路徑樹，以及離開群組。</p>
+<div id="s3-mcast"></div>
+
 <h2>IGMP</h2>
 <table>
 <thead><tr><th>版本</th><th>加入</th><th>離開</th><th>來源過濾</th></tr></thead>
@@ -83,6 +87,7 @@ sonic# show ip pim neighbor
 sonic# show ip mroute</pre>
 `,
   mount(root) {
+    S.scenes.mcast(root.querySelector('#s3-mcast'));
     const host = root.querySelector('#snoop');
     const box = S.el('div', { class: 'w-box' });
     host.appendChild(box);

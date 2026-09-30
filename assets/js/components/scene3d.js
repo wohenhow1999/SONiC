@@ -260,7 +260,8 @@
       if (a[0] === 'wait') { st.t += dt; return st.t >= a[1]; }
       if (a[0] === 'call') { a[1](); return true; }
       if (a[0] === 'move') {
-        const [, obj, curve, dur] = a;
+        const [, obj, c0, dur] = a;
+        const curve = typeof c0 === 'function' ? (st.c || (st.c = c0())) : c0;   // 可延後到動作開始時才計算路徑
         st.t += dt; obj.visible = true;
         const u = Math.min(1, st.t / dur);
         obj.position.copy(curve.getPointAt(ease(u)));

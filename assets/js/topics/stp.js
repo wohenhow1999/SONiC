@@ -23,6 +23,10 @@ S.register({
     '拓樸變更時會觸發 FDB flush，讓 MAC 重新學習到新的路徑上。',
   ],
   html: `
+<h2>立體模型</h2>
+<p>高度代表交換機到 root bridge 的路徑成本：選出 root 之後，整棵生成樹吊掛在它下方，被阻斷的鏈路以紅色表示。最後一步切斷一條鏈路，可以看到交換機移到新的高度、原本阻斷的鏈路轉為轉送。</p>
+<div id="s3-stp"></div>
+
 <h2>協定原理</h2>
 <h3>Bridge ID 與路徑成本</h3>
 <p>每台交換機有一個 <b>Bridge ID</b> = 優先權（預設 32768，以 4096 為單位）+ 系統 MAC。在 PVST 中優先權欄位另外加上 VLAN ID（extended system ID）。每條鏈路依速率有一個 <b>path cost</b>（802.1t 長格式：1G = 20000、10G = 2000、100G = 200），交換機到 root 的成本是沿途入口 port 成本的總和。</p>
@@ -109,6 +113,7 @@ sonic(config)# spanning-tree mst 1 priority 4096
 sonic# show spanning-tree mst</pre>
 `,
   mount(root) {
+    S.scenes.stp(root.querySelector('#s3-stp'));
     // ---------- 選舉模擬 ----------
     const host = root.querySelector('#sim');
     const box = S.el('div', { class: 'w-box' });
