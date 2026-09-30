@@ -235,7 +235,7 @@
       m.scale.setScalar(o.size || 0.7);
       grp.add(m);
       if (o.glow !== false) { const s = new THREE.Sprite(glowMat); s.scale.setScalar((o.size || 0.7) * 3.4); grp.add(s); }
-      if (o.label) { const l = k.label(o.label, { size: 0.55, parent: grp, y: (o.size || 0.7) * 0.8, token: o.token }); l.renderOrder = 6; }
+      if (o.label) { const l = k.label(o.label, { size: 0.55, parent: grp, y: (o.size || 0.7) * 0.8, token: o.token }); l.renderOrder = 6; l.material.depthTest = false; }
       grp.visible = false;
       grp.userData.core = m;
       scene.add(grp);
